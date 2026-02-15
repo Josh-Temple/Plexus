@@ -11,7 +11,7 @@ export default function AuthPage() {
 
   const signIn = async () => {
     const { error } = await supabase.auth.signInWithOtp({ email });
-    setMsg(error ? error.message : "確認メールを送信しました");
+    setMsg(error ? error.message : "Check your email for the sign-in link.");
   };
 
   const signOut = async () => {
@@ -21,19 +21,19 @@ export default function AuthPage() {
 
   return (
     <div className="flex min-h-screen flex-col justify-center gap-3 p-4">
-      <h1 className="text-2xl font-bold">ログイン</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
       <input
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="rounded bg-panel px-3 py-2"
+        className="input-base"
         placeholder="you@example.com"
       />
-      <button onClick={signIn} className="rounded bg-accent px-4 py-2 text-black">
-        OTPでログイン
+      <button onClick={signIn} className="btn-primary">
+        Send OTP link
       </button>
-      <button onClick={signOut} className="rounded bg-white/10 px-4 py-2">
-        ログアウト
+      <button onClick={signOut} className="btn-ghost">
+        Sign out
       </button>
       {msg && <p className="text-sm text-muted">{msg}</p>}
     </div>

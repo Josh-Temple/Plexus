@@ -19,6 +19,8 @@ const normalizeLinkRows = (rows: RawLinkRow[] | null | undefined): LinkRow[] =>
     notes: Array.isArray(row.notes) ? row.notes[0] ?? null : row.notes ?? null,
   }));
 
+const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : "Something went wrong.");
+
 export default function NotePage() {
   const params = useParams<{ id: string }>();
   const [note, setNote] = useState<Note | null>(null);
@@ -35,6 +37,7 @@ export default function NotePage() {
       supabase.from("links").select("id,from_note_id,to_note_id,notes:from_note_id(title)").eq("to_note_id", params.id),
       supabase.from("links").select("id,from_note_id,to_note_id,notes:to_note_id(title)").eq("from_note_id", params.id),
     ]);
+
     setNote(single as Note);
     setAllNotes((notes as Note[]) ?? []);
     setBacklinks(normalizeLinkRows(back as RawLinkRow[] | null));
@@ -52,9 +55,10 @@ export default function NotePage() {
         .from("notes")
         .update({ title: patch.title, body: patch.body, body_hash, updated_at: new Date().toISOString() })
         .eq("id", params.id);
+
       if (error) setToast(error.message);
     } catch (error) {
-      setToast((error as Error).message);
+      setToast(getErrorMessage(error));
     }
   };
 
@@ -63,13 +67,14 @@ export default function NotePage() {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
+
     if (userError) return setToast(userError.message);
-    if (!user) return setToast("ログインが必要です");
+    if (!user) return setToast("You need to sign in.");
 
     const parsed = extractWikiLinks(body);
     const resolved = parsed
       .map((title) => {
-        const hit = allNotes.find((n) => n.title === title);
+        const hit = allNotes.find((item) => item.title === title);
         if (!hit) return null;
         return hit.id;
       })
@@ -78,21 +83,19 @@ export default function NotePage() {
     const { data: existing, error } = await supabase.from("links").select("id,to_note_id").eq("from_note_id", params.id);
     if (error) return setToast(error.message);
 
-    const have = new Set((existing ?? []).map((l) => l.to_note_id));
+    const have = new Set((existing ?? []).map((item) => item.to_note_id));
     const want = new Set(resolved);
 
-    const toDelete = (existing ?? []).filter((l) => !want.has(l.to_note_id)).map((l) => l.id);
+    const toDelete = (existing ?? []).filter((item) => !want.has(item.to_note_id)).map((item) => item.id);
     if (toDelete.length) await supabase.from("links").delete().in("id", toDelete);
 
     const toInsert = [...want].filter((target) => !have.has(target));
     if (toInsert.length) {
-      await supabase.from("links").insert(
-        toInsert.map((to_note_id) => ({ from_note_id: params.id, to_note_id, user_id: user.id }))
-      );
+      await supabase.from("links").insert(toInsert.map((to_note_id) => ({ from_note_id: params.id, to_note_id, user_id: user.id })));
     }
 
-    if (parsed.some((t) => allNotes.filter((n) => n.title === t).length > 1)) {
-      console.warn("multiple title matches found; picked first.");
+    if (parsed.some((title) => allNotes.filter((item) => item.title === title).length > 1)) {
+      console.warn("Multiple title matches found; first match was used.");
     }
 
     await load();
@@ -100,6 +103,7 @@ export default function NotePage() {
 
   const related = useMemo(() => {
     if (!note) return [];
+
     const words = new Set(`${note.title} ${note.body}`.toLowerCase().split(/\W+/).filter(Boolean));
     return allNotes
       .filter((item) => item.id !== note.id)
@@ -114,29 +118,33 @@ export default function NotePage() {
       .slice(0, 8);
   }, [allNotes, note]);
 
-  if (!note) return <div className="p-4">Loading...</div>;
+  if (!note) return <div className="p-4 text-sm text-muted">Loading…</div>;
 
   return (
-    <div className="p-3">
+    <div className="p-4">
       <Toast message={toast} />
-      <div className="mb-2 flex items-center justify-between">
-        <Link href="/" className="text-sm text-muted">← Home</Link>
-        <button className="rounded bg-white/10 px-3 py-1 text-sm" onClick={() => setOpenSheet(true)}>
-          Links
+      <div className="mb-3 flex items-center justify-between">
+        <Link href="/" className="text-sm text-muted">
+          ← Home
+        </Link>
+        <button className="btn-ghost" onClick={() => setOpenSheet(true)}>
+          Connections
         </button>
       </div>
       <NoteEditor note={note} candidates={allNotes} onAutoSave={onAutoSave} onSyncLinks={onSyncLinks} />
       <BottomSheet open={openSheet} onClose={() => setOpenSheet(false)} title="Connections">
         <section className="mb-4">
-          <h3 className="mb-1 font-semibold">Related</h3>
+          <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">Related</h3>
           <ul className="space-y-1 text-sm">
             {related.map(({ item }) => (
-              <li key={item.id}><Link href={`/note/${item.id}`}>{item.title}</Link></li>
+              <li key={item.id}>
+                <Link href={`/note/${item.id}`}>{item.title}</Link>
+              </li>
             ))}
           </ul>
         </section>
         <section className="mb-4">
-          <h3 className="mb-1 font-semibold">Backlinks</h3>
+          <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">Backlinks</h3>
           <ul className="space-y-1 text-sm">
             {backlinks.map((item) => (
               <li key={item.id}>{item.notes?.title ?? item.from_note_id}</li>
@@ -144,7 +152,7 @@ export default function NotePage() {
           </ul>
         </section>
         <section className="mb-4">
-          <h3 className="mb-1 font-semibold">Outgoing</h3>
+          <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">Outgoing</h3>
           <ul className="space-y-1 text-sm">
             {outgoing.map((item) => (
               <li key={item.id}>{item.notes?.title ?? item.to_note_id}</li>
@@ -152,10 +160,10 @@ export default function NotePage() {
           </ul>
         </section>
         <section>
-          <h3 className="mb-1 font-semibold">To connect</h3>
+          <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">Suggested links</h3>
           <ul className="space-y-1 text-sm">
             {related
-              .filter(({ item }) => !outgoing.some((o) => o.to_note_id === item.id))
+              .filter(({ item }) => !outgoing.some((out) => out.to_note_id === item.id))
               .map(({ item }) => (
                 <li key={item.id}>{item.title}</li>
               ))}

@@ -7,12 +7,30 @@
 }
 
 body {
-  @apply bg-bg text-white min-h-screen;
+  @apply min-h-screen bg-bg text-slate-100 antialiased;
 }
 
 button,
 a,
 input,
 textarea {
-  @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent;
+  @apply transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent;
+}
+
+@layer components {
+  .surface {
+    @apply rounded-2xl border border-white/10 bg-panel/80;
+  }
+
+  .input-base {
+    @apply w-full rounded-xl border border-white/10 bg-transparent px-3 py-2 text-sm placeholder:text-muted;
+  }
+
+  .btn-ghost {
+    @apply rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-100 hover:bg-white/5;
+  }
+
+  .btn-primary {
+    @apply rounded-xl bg-accent px-4 py-2 text-sm font-medium text-black hover:bg-accent/90;
+  }
 }
