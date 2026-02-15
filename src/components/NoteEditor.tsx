@@ -1,0 +1,93 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Note } from "@/types/db";
+import { markdownLite } from "@/lib/noteUtils";
+import { SuggestBar } from "./SuggestBar";
+
+type Props = {
+  note: Note;
+  candidates: Note[];
+  onAutoSave: (patch: Pick<Note, "title" | "body" | "body_hash">) => Promise<void>;
+  onSyncLinks: (body: string) => Promise<void>;
+};
+
+export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks }: Props) {
+  const [title, setTitle] = useState(note.title);
+  const [body, setBody] = useState(note.body);
+  const [preview, setPreview] = useState(false);
+  const [showSuggest, setShowSuggest] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      await onAutoSave({ title, body, body_hash: note.body_hash });
+      await onSyncLinks(body);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [title, body, onAutoSave, onSyncLinks, note.body_hash]);
+
+  const suggestions = useMemo(() => {
+    const token = body.split("[[").pop()?.toLowerCase() ?? "";
+    if (!showSuggest) return [];
+    return candidates
+      .filter((item) => item.id !== note.id)
+      .filter((item) => item.title.toLowerCase().includes(token) || item.body.toLowerCase().includes(token))
+      .slice(0, 8);
+  }, [body, candidates, note.id, showSuggest]);
+
+  const onEnterBullet = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter") return;
+    const cursor = event.currentTarget.selectionStart;
+    const prev = body.slice(0, cursor).split("\n").pop() ?? "";
+    if (!prev.startsWith("- ")) return;
+    event.preventDefault();
+    const next = `${body.slice(0, cursor)}\n- ${body.slice(cursor)}`;
+    setBody(next);
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.selectionStart = cursor + 4;
+        textareaRef.current.selectionEnd = cursor + 4;
+      }
+    });
+  };
+
+  const onPickSuggestion = (picked: Note) => {
+    const cursor = textareaRef.current?.selectionStart ?? body.length;
+    const before = body.slice(0, cursor);
+    const after = body.slice(cursor);
+    const replaced = before.replace(/\[\[[^\[]*$/, `[[${picked.title}]]`);
+    setBody(`${replaced}${after}`);
+    setShowSuggest(false);
+  };
+
+  return (
+    <section className="flex h-full flex-col gap-3 pb-16">
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Title"
+        className="w-full rounded-lg bg-panel px-3 py-2 text-lg"
+      />
+      <button className="self-start rounded bg-white/10 px-3 py-1 text-sm" onClick={() => setPreview((v) => !v)}>
+        {preview ? "Edit" : "Preview"}
+      </button>
+      {preview ? (
+        <article className="prose prose-invert max-w-none rounded-lg bg-panel p-3" dangerouslySetInnerHTML={{ __html: markdownLite(body) }} />
+      ) : (
+        <textarea
+          ref={textareaRef}
+          value={body}
+          onChange={(e) => {
+            setBody(e.target.value);
+            setShowSuggest(e.target.value.slice(0, e.target.selectionStart).includes("[["));
+          }}
+          onKeyDown={onEnterBullet}
+          placeholder="Write your note..."
+          className="min-h-[55vh] w-full rounded-lg bg-panel p-3"
+        />
+      )}
+      <SuggestBar visible={showSuggest} suggestions={suggestions} onSelect={onPickSuggestion} />
+    </section>
+  );
+}

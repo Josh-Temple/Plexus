@@ -1,0 +1,164 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import { cheapHash } from "@/lib/noteUtils";
+import { BottomSheet } from "@/components/BottomSheet";
+import { Toast } from "@/components/Toast";
+import { Note } from "@/types/db";
+
+export default function HomePage() {
+  const router = useRouter();
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "inbox" | "pinned">("all");
+  const [openCreate, setOpenCreate] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newBody, setNewBody] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+
+  const load = async (search = query) => {
+    let q = supabase.from("notes").select("*").order("updated_at", { ascending: false }).limit(100);
+    if (search) q = q.or(`title.ilike.%${search}%,body.ilike.%${search}%`);
+    if (filter === "inbox") q = q.eq("inbox", true);
+    if (filter === "pinned") q = q.eq("pinned", true);
+    const { data, error } = await q;
+    if (error) return setToast(error.message);
+    setNotes((data as Note[]) ?? []);
+  };
+
+  useEffect(() => {
+    const run = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) router.push("/auth");
+      else await load();
+    };
+    run();
+  }, [router]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      load(query);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query, filter]);
+
+  const similarCandidates = useMemo(() => {
+    const kw = `${newTitle} ${newBody}`.trim().toLowerCase();
+    if (!kw) return [];
+    return notes
+      .filter((n) => `${n.title} ${n.body}`.toLowerCase().includes(kw) || n.title.toLowerCase().includes(newTitle.toLowerCase()))
+      .slice(0, 6);
+  }, [notes, newTitle, newBody]);
+
+  const createNote = async () => {
+    try {
+      const body_hash = await cheapHash(newBody);
+      const exact = notes.find((n) => n.body_hash === body_hash);
+      if (exact) setToast(`完全一致の可能性: ${exact.title}`);
+      const { data, error } = await supabase
+        .from("notes")
+        .insert({ title: newTitle || "Untitled", body: newBody, body_hash, inbox: true, pinned: false })
+        .select("id")
+        .single();
+      if (error) throw error;
+      setOpenCreate(false);
+      setNewTitle("");
+      setNewBody("");
+      await load();
+      router.push(`/note/${data.id}`);
+    } catch (error) {
+      setToast((error as Error).message);
+    }
+  };
+
+  const toggleFlag = async (id: string, patch: Partial<Pick<Note, "inbox" | "pinned">>) => {
+    const { error } = await supabase.from("notes").update(patch).eq("id", id);
+    if (error) setToast(error.message);
+    await load();
+  };
+
+  const removeNote = async (id: string) => {
+    const { error } = await supabase.from("notes").delete().eq("id", id);
+    if (error) setToast(error.message);
+    await load();
+  };
+
+  return (
+    <div className="relative flex min-h-screen flex-col gap-3 p-3 pb-24">
+      <Toast message={toast} />
+      <h1 className="text-2xl font-bold">Plexus</h1>
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        className="rounded-lg bg-panel px-3 py-2"
+        placeholder="Search title/body"
+      />
+      <div className="flex gap-2 text-sm">
+        {(["all", "inbox", "pinned"] as const).map((f) => (
+          <button
+            key={f}
+            className={`rounded-full px-3 py-1 ${filter === f ? "bg-accent text-black" : "bg-white/10"}`}
+            onClick={() => setFilter(f)}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+      <ul className="space-y-2">
+        {notes.map((n) => (
+          <li key={n.id} className="rounded-lg bg-panel p-3">
+            <Link href={`/note/${n.id}`} className="block font-semibold">
+              {n.title || "Untitled"}
+            </Link>
+            <p className="line-clamp-2 text-sm text-muted">{n.body}</p>
+            <div className="mt-2 flex gap-2 text-xs">
+              <button onClick={() => toggleFlag(n.id, { inbox: !n.inbox })}>inbox:{String(n.inbox)}</button>
+              <button onClick={() => toggleFlag(n.id, { pinned: !n.pinned })}>pinned:{String(n.pinned)}</button>
+              <button onClick={() => removeNote(n.id)} className="text-red-300">delete</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <button
+        className="fixed bottom-5 right-5 h-14 w-14 rounded-full bg-accent text-3xl text-black"
+        onClick={() => setOpenCreate(true)}
+      >
+        +
+      </button>
+      <BottomSheet open={openCreate} onClose={() => setOpenCreate(false)} title="クイック作成">
+        <div className="space-y-2">
+          <input
+            className="w-full rounded bg-white/10 px-3 py-2"
+            placeholder="Title"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+          />
+          <textarea
+            className="min-h-28 w-full rounded bg-white/10 px-3 py-2"
+            placeholder="Body"
+            value={newBody}
+            onChange={(e) => setNewBody(e.target.value)}
+          />
+          <button onClick={createNote} className="w-full rounded bg-accent px-4 py-2 font-semibold text-black">
+            作成
+          </button>
+          {similarCandidates.length > 0 && (
+            <div>
+              <p className="mb-1 text-sm text-muted">類似候補</p>
+              <ul className="space-y-1 text-sm">
+                {similarCandidates.map((item) => (
+                  <li key={item.id} className="rounded bg-white/5 px-2 py-1">
+                    {item.title}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </BottomSheet>
+    </div>
+  );
+}
