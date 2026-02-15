@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { handleBulletListKeyDown } from "@/lib/bulletListEditor";
 import { cheapHash } from "@/lib/noteUtils";
 import { BottomSheet } from "@/components/BottomSheet";
 import { Toast } from "@/components/Toast";
@@ -12,6 +13,7 @@ import { Note } from "@/types/db";
 export default function HomePage() {
   const router = useRouter();
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const createBodyRef = useRef<HTMLTextAreaElement | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "inbox" | "pinned">("all");
@@ -216,10 +218,19 @@ export default function HomePage() {
             onChange={(e) => setNewTitle(e.target.value)}
           />
           <textarea
+            ref={createBodyRef}
             className="min-h-28 w-full rounded bg-white/10 px-3 py-2"
             placeholder="Body"
             value={newBody}
             onChange={(e) => setNewBody(e.target.value)}
+            onKeyDown={(event) => {
+              handleBulletListKeyDown({
+                event,
+                value: newBody,
+                setValue: setNewBody,
+                textareaRef: createBodyRef,
+              });
+            }}
           />
           <button onClick={createNote} className="w-full rounded bg-accent px-4 py-2 font-semibold text-black">
             作成
