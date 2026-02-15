@@ -10,13 +10,23 @@ import { BottomSheet } from "@/components/BottomSheet";
 import { Toast } from "@/components/Toast";
 import { Note } from "@/types/db";
 
+const FILTER_OPTIONS = [
+  { key: "all", label: "All" },
+  { key: "inbox", label: "Inbox" },
+  { key: "pinned", label: "Pinned" },
+] as const;
+
+type FilterType = (typeof FILTER_OPTIONS)[number]["key"];
+
+const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : "Something went wrong.");
+
 export default function HomePage() {
   const router = useRouter();
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const createBodyRef = useRef<HTMLTextAreaElement | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | "inbox" | "pinned">("all");
+  const [filter, setFilter] = useState<FilterType>("all");
   const [openCreate, setOpenCreate] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newBody, setNewBody] = useState("");
@@ -28,6 +38,7 @@ export default function HomePage() {
       if (search) q = q.or(`title.ilike.%${search}%,body.ilike.%${search}%`);
       if (nextFilter === "inbox") q = q.eq("inbox", true);
       if (nextFilter === "pinned") q = q.eq("pinned", true);
+
       const { data, error } = await q;
       if (error) return setToast(error.message);
       setNotes((data as Note[]) ?? []);
@@ -38,26 +49,36 @@ export default function HomePage() {
   useEffect(() => {
     const run = async () => {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) router.push("/auth");
-      else await load();
+      if (!data.session) {
+        router.push("/auth");
+        return;
+      }
+      await load();
     };
     run();
   }, [load, router]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      load(query);
+      load(query, filter);
     }, 250);
     return () => clearTimeout(timer);
   }, [filter, load, query]);
 
   const similarCandidates = useMemo(() => {
-    const kw = `${newTitle} ${newBody}`.trim().toLowerCase();
-    if (!kw) return [];
+    const keyword = `${newTitle} ${newBody}`.trim().toLowerCase();
+    if (!keyword) return [];
+
     return notes
-      .filter((n) => `${n.title} ${n.body}`.toLowerCase().includes(kw) || n.title.toLowerCase().includes(newTitle.toLowerCase()))
-      .slice(0, 6);
-  }, [notes, newTitle, newBody]);
+      .filter((note) => `${note.title} ${note.body}`.toLowerCase().includes(keyword))
+      .slice(0, 5);
+  }, [notes, newBody, newTitle]);
+
+  const resetCreateForm = () => {
+    setOpenCreate(false);
+    setNewTitle("");
+    setNewBody("");
+  };
 
   const createNote = async () => {
     try {
@@ -65,25 +86,33 @@ export default function HomePage() {
         data: { user },
         error: userError,
       } = await supabase.auth.getUser();
+
       if (userError) throw userError;
-      if (!user) throw new Error("ログインが必要です");
+      if (!user) throw new Error("You need to sign in.");
 
       const body_hash = await cheapHash(newBody);
-      const exact = notes.find((n) => n.body_hash === body_hash);
-      if (exact) setToast(`完全一致の可能性: ${exact.title}`);
+      const exact = notes.find((note) => note.body_hash === body_hash);
+      if (exact) setToast(`Possible duplicate: ${exact.title || "Untitled"}`);
+
       const { data, error } = await supabase
         .from("notes")
-        .insert({ title: newTitle || "Untitled", body: newBody, body_hash, inbox: true, pinned: false, user_id: user.id })
+        .insert({
+          title: newTitle || "Untitled",
+          body: newBody,
+          body_hash,
+          inbox: true,
+          pinned: false,
+          user_id: user.id,
+        })
         .select("id")
         .single();
+
       if (error) throw error;
-      setOpenCreate(false);
-      setNewTitle("");
-      setNewBody("");
+      resetCreateForm();
       await load();
       router.push(`/note/${data.id}`);
     } catch (error) {
-      setToast((error as Error).message);
+      setToast(getErrorMessage(error));
     }
   };
 
@@ -109,7 +138,7 @@ export default function HomePage() {
       } = await supabase.auth.getUser();
 
       if (userError) throw userError;
-      if (!user) throw new Error("ログインが必要です");
+      if (!user) throw new Error("You need to sign in.");
 
       let importedCount = 0;
 
@@ -117,10 +146,10 @@ export default function HomePage() {
         const body = await file.text();
         const title = file.name.replace(/\.[^.]+$/, "") || "Untitled";
         const body_hash = await cheapHash(body);
-        const existing = notes.find((n) => n.title === title);
+        const existing = notes.find((note) => note.title === title);
 
         if (existing) {
-          const shouldOverwrite = window.confirm(`「${title}」は既に存在します。上書きしますか？`);
+          const shouldOverwrite = window.confirm(`"${title}" already exists. Overwrite it?`);
           if (!shouldOverwrite) continue;
 
           const { error } = await supabase
@@ -142,17 +171,21 @@ export default function HomePage() {
       }
 
       await load();
-      setToast(importedCount > 0 ? `${importedCount}件インポートしました` : "インポートをスキップしました");
+      setToast(importedCount > 0 ? `Imported ${importedCount} note(s).` : "Import skipped.");
     } catch (error) {
-      setToast((error as Error).message);
+      setToast(getErrorMessage(error));
     }
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col gap-3 p-3 pb-24">
+    <div className="relative flex min-h-screen flex-col gap-4 p-4 pb-24">
       <Toast message={toast} />
-      <h1 className="text-2xl font-bold">Plexus</h1>
-      <div>
+
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Plexus</h1>
+          <p className="text-xs text-muted">Clarity-first notes</p>
+        </div>
         <input
           ref={importInputRef}
           type="file"
@@ -164,63 +197,73 @@ export default function HomePage() {
             e.currentTarget.value = "";
           }}
         />
-        <button
-          className="rounded-lg bg-white/10 px-3 py-2 text-sm"
-          onClick={() => importInputRef.current?.click()}
-        >
-          インポート
+        <button className="btn-ghost" onClick={() => importInputRef.current?.click()}>
+          Import
         </button>
+      </header>
+
+      <div className="surface p-3">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="input-base"
+          placeholder="Search notes"
+        />
+        <div className="mt-3 flex gap-2">
+          {FILTER_OPTIONS.map((option) => (
+            <button
+              key={option.key}
+              className={filter === option.key ? "btn-primary" : "btn-ghost"}
+              onClick={() => setFilter(option.key)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        className="rounded-lg bg-panel px-3 py-2"
-        placeholder="Search title/body"
-      />
-      <div className="flex gap-2 text-sm">
-        {(["all", "inbox", "pinned"] as const).map((f) => (
-          <button
-            key={f}
-            className={`rounded-full px-3 py-1 ${filter === f ? "bg-accent text-black" : "bg-white/10"}`}
-            onClick={() => setFilter(f)}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
+
       <ul className="space-y-2">
-        {notes.map((n) => (
-          <li key={n.id} className="rounded-lg bg-panel p-3">
-            <Link href={`/note/${n.id}`} className="block font-semibold">
-              {n.title || "Untitled"}
+        {notes.map((note) => (
+          <li key={note.id} className="surface p-3">
+            <Link href={`/note/${note.id}`} className="block text-base font-medium">
+              {note.title || "Untitled"}
             </Link>
-            <p className="line-clamp-2 text-sm text-muted">{n.body}</p>
-            <div className="mt-2 flex gap-2 text-xs">
-              <button onClick={() => toggleFlag(n.id, { inbox: !n.inbox })}>inbox:{String(n.inbox)}</button>
-              <button onClick={() => toggleFlag(n.id, { pinned: !n.pinned })}>pinned:{String(n.pinned)}</button>
-              <button onClick={() => removeNote(n.id)} className="text-red-300">delete</button>
+            <p className="mt-1 line-clamp-2 text-sm text-muted">{note.body}</p>
+            <div className="mt-3 flex gap-2 text-xs">
+              <button className="btn-ghost" onClick={() => toggleFlag(note.id, { inbox: !note.inbox })}>
+                {note.inbox ? "Remove inbox" : "Move to inbox"}
+              </button>
+              <button className="btn-ghost" onClick={() => toggleFlag(note.id, { pinned: !note.pinned })}>
+                {note.pinned ? "Unpin" : "Pin"}
+              </button>
+              <button className="rounded-xl px-3 py-2 text-red-300 hover:bg-red-500/10" onClick={() => removeNote(note.id)}>
+                Delete
+              </button>
             </div>
           </li>
         ))}
       </ul>
+
       <button
-        className="fixed bottom-5 right-5 h-14 w-14 rounded-full bg-accent text-3xl text-black"
+        className="fixed bottom-5 right-5 h-12 w-12 rounded-full border border-white/20 bg-panel text-2xl text-slate-100"
         onClick={() => setOpenCreate(true)}
+        aria-label="Create note"
       >
         +
       </button>
-      <BottomSheet open={openCreate} onClose={() => setOpenCreate(false)} title="クイック作成">
-        <div className="space-y-2">
+
+      <BottomSheet open={openCreate} onClose={resetCreateForm} title="Quick note">
+        <div className="space-y-3">
           <input
-            className="w-full rounded bg-white/10 px-3 py-2"
+            className="input-base"
             placeholder="Title"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
           />
           <textarea
             ref={createBodyRef}
-            className="min-h-28 w-full rounded bg-white/10 px-3 py-2"
-            placeholder="Body"
+            className="input-base min-h-28"
+            placeholder="Write your note"
             value={newBody}
             onChange={(e) => setNewBody(e.target.value)}
             onKeyDown={(event) => {
@@ -232,16 +275,16 @@ export default function HomePage() {
               });
             }}
           />
-          <button onClick={createNote} className="w-full rounded bg-accent px-4 py-2 font-semibold text-black">
-            作成
+          <button onClick={createNote} className="btn-primary w-full">
+            Create note
           </button>
           {similarCandidates.length > 0 && (
             <div>
-              <p className="mb-1 text-sm text-muted">類似候補</p>
+              <p className="mb-1 text-xs uppercase tracking-wide text-muted">Similar notes</p>
               <ul className="space-y-1 text-sm">
                 {similarCandidates.map((item) => (
-                  <li key={item.id} className="rounded bg-white/5 px-2 py-1">
-                    {item.title}
+                  <li key={item.id} className="rounded-lg border border-white/10 px-2 py-1">
+                    {item.title || "Untitled"}
                   </li>
                 ))}
               </ul>
