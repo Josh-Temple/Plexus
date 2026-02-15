@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Note } from "@/types/db";
 import { markdownLite } from "@/lib/noteUtils";
+import { handleBulletListKeyDown } from "@/lib/bulletListEditor";
 import { SuggestBar } from "./SuggestBar";
 
 type Props = {
@@ -37,18 +38,11 @@ export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks }: Props)
   }, [body, candidates, note.id, showSuggest]);
 
   const onEnterBullet = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key !== "Enter") return;
-    const cursor = event.currentTarget.selectionStart;
-    const prev = body.slice(0, cursor).split("\n").pop() ?? "";
-    if (!prev.startsWith("- ")) return;
-    event.preventDefault();
-    const next = `${body.slice(0, cursor)}\n- ${body.slice(cursor)}`;
-    setBody(next);
-    requestAnimationFrame(() => {
-      if (textareaRef.current) {
-        textareaRef.current.selectionStart = cursor + 4;
-        textareaRef.current.selectionEnd = cursor + 4;
-      }
+    handleBulletListKeyDown({
+      event,
+      value: body,
+      setValue: setBody,
+      textareaRef,
     });
   };
 
