@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BottomSheet } from "@/components/BottomSheet";
 import { NoteEditor } from "@/components/NoteEditor";
 import { Toast } from "@/components/Toast";
@@ -28,7 +28,7 @@ export default function NotePage() {
   const [openSheet, setOpenSheet] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [{ data: single }, { data: notes }, { data: back }, { data: out }] = await Promise.all([
       supabase.from("notes").select("*").eq("id", params.id).single(),
       supabase.from("notes").select("*").order("updated_at", { ascending: false }).limit(50),
@@ -39,11 +39,11 @@ export default function NotePage() {
     setAllNotes((notes as Note[]) ?? []);
     setBacklinks(normalizeLinkRows(back as RawLinkRow[] | null));
     setOutgoing(normalizeLinkRows(out as RawLinkRow[] | null));
-  };
+  }, [params.id]);
 
   useEffect(() => {
     load();
-  }, [params.id]);
+  }, [load]);
 
   const onAutoSave = async (patch: Pick<Note, "title" | "body" | "body_hash">) => {
     try {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { cheapHash } from "@/lib/noteUtils";
@@ -19,15 +19,18 @@ export default function HomePage() {
   const [newBody, setNewBody] = useState("");
   const [toast, setToast] = useState<string | null>(null);
 
-  const load = async (search = query) => {
-    let q = supabase.from("notes").select("*").order("updated_at", { ascending: false }).limit(100);
-    if (search) q = q.or(`title.ilike.%${search}%,body.ilike.%${search}%`);
-    if (filter === "inbox") q = q.eq("inbox", true);
-    if (filter === "pinned") q = q.eq("pinned", true);
-    const { data, error } = await q;
-    if (error) return setToast(error.message);
-    setNotes((data as Note[]) ?? []);
-  };
+  const load = useCallback(
+    async (search = query, nextFilter = filter) => {
+      let q = supabase.from("notes").select("*").order("updated_at", { ascending: false }).limit(100);
+      if (search) q = q.or(`title.ilike.%${search}%,body.ilike.%${search}%`);
+      if (nextFilter === "inbox") q = q.eq("inbox", true);
+      if (nextFilter === "pinned") q = q.eq("pinned", true);
+      const { data, error } = await q;
+      if (error) return setToast(error.message);
+      setNotes((data as Note[]) ?? []);
+    },
+    [filter, query]
+  );
 
   useEffect(() => {
     const run = async () => {
@@ -36,14 +39,14 @@ export default function HomePage() {
       else await load();
     };
     run();
-  }, [router]);
+  }, [load, router]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       load(query);
     }, 250);
     return () => clearTimeout(timer);
-  }, [query, filter]);
+  }, [filter, load, query]);
 
   const similarCandidates = useMemo(() => {
     const kw = `${newTitle} ${newBody}`.trim().toLowerCase();
