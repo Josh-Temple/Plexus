@@ -19,15 +19,28 @@ export const extractWikiLinks = (body: string): string[] => {
   return [...new Set(matches.map((raw) => raw.slice(2, -2).trim()).filter(Boolean))];
 };
 
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const renderInline = (value: string) =>
+  escapeHtml(value).replace(/\[\[([^\]]+)\]\]/g, (_raw, text: string) => `<a href=\"/\">${escapeHtml(text)}</a>`);
+
 export const markdownLite = (body: string) => {
   return body
     .split("\n")
     .map((line) => {
-      if (line.startsWith("### ")) return `<h3>${line.slice(4)}</h3>`;
-      if (line.startsWith("## ")) return `<h2>${line.slice(3)}</h2>`;
-      if (line.startsWith("# ")) return `<h1>${line.slice(2)}</h1>`;
-      if (line.startsWith("- ")) return `<li>${line.slice(2)}</li>`;
-      return `<p>${line.replace(/\[\[([^\]]+)\]\]/g, `<a href=\"/\">$1</a>`)}</p>`;
+      const normalizedLine = line.replace(/^\s+/, "").replace(/^＃/u, "#");
+
+      if (normalizedLine.startsWith("### ")) return `<h3>${renderInline(normalizedLine.slice(4))}</h3>`;
+      if (normalizedLine.startsWith("## ")) return `<h2>${renderInline(normalizedLine.slice(3))}</h2>`;
+      if (normalizedLine.startsWith("# ")) return `<h1>${renderInline(normalizedLine.slice(2))}</h1>`;
+      if (normalizedLine.startsWith("- ")) return `<li>${renderInline(normalizedLine.slice(2))}</li>`;
+      return `<p>${renderInline(line)}</p>`;
     })
     .join("")
     .replace(/(<li>.*?<\/li>)+/g, (list) => `<ul>${list}</ul>`);

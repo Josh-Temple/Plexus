@@ -19,11 +19,17 @@ export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks }: Props)
   const [preview, setPreview] = useState(false);
   const [showSuggest, setShowSuggest] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const loadedNoteIdRef = useRef(note.id);
 
   useEffect(() => {
+    if (loadedNoteIdRef.current === note.id) return;
+
+    loadedNoteIdRef.current = note.id;
     setTitle(note.title);
     setBody(note.body);
-  }, [note.body, note.title, note.id]);
+    setPreview(false);
+    setShowSuggest(false);
+  }, [note.id, note.body, note.title]);
 
   useEffect(() => {
     const timer = setTimeout(async () => {
