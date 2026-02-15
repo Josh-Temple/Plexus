@@ -11,6 +11,13 @@ import { supabase } from "@/lib/supabaseClient";
 import { Note } from "@/types/db";
 
 type LinkRow = { id: string; from_note_id: string; to_note_id: string; notes?: { title: string } | null };
+type RawLinkRow = Omit<LinkRow, "notes"> & { notes?: { title: string } | { title: string }[] | null };
+
+const normalizeLinkRows = (rows: RawLinkRow[] | null | undefined): LinkRow[] =>
+  (rows ?? []).map((row) => ({
+    ...row,
+    notes: Array.isArray(row.notes) ? row.notes[0] ?? null : row.notes ?? null,
+  }));
 
 export default function NotePage() {
   const params = useParams<{ id: string }>();
@@ -30,8 +37,8 @@ export default function NotePage() {
     ]);
     setNote(single as Note);
     setAllNotes((notes as Note[]) ?? []);
-    setBacklinks((back as LinkRow[]) ?? []);
-    setOutgoing((out as LinkRow[]) ?? []);
+    setBacklinks(normalizeLinkRows(back as RawLinkRow[] | null));
+    setOutgoing(normalizeLinkRows(out as RawLinkRow[] | null));
   };
 
   useEffect(() => {
