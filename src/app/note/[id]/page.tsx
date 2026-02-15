@@ -59,6 +59,13 @@ export default function NotePage() {
   };
 
   const onSyncLinks = async (body: string) => {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+    if (userError) return setToast(userError.message);
+    if (!user) return setToast("ログインが必要です");
+
     const parsed = extractWikiLinks(body);
     const resolved = parsed
       .map((title) => {
@@ -80,7 +87,7 @@ export default function NotePage() {
     const toInsert = [...want].filter((target) => !have.has(target));
     if (toInsert.length) {
       await supabase.from("links").insert(
-        toInsert.map((to_note_id) => ({ from_note_id: params.id, to_note_id }))
+        toInsert.map((to_note_id) => ({ from_note_id: params.id, to_note_id, user_id: user.id }))
       );
     }
 

@@ -29,7 +29,7 @@ create extension if not exists pgcrypto;
 
 create table if not exists public.notes (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   title text not null default '',
   body text not null default '',
   body_hash text,
@@ -41,7 +41,7 @@ create table if not exists public.notes (
 
 create table if not exists public.links (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   from_note_id uuid not null references public.notes(id) on delete cascade,
   to_note_id uuid not null references public.notes(id) on delete cascade,
   reason text,
@@ -83,6 +83,20 @@ for each row execute procedure public.set_user_id_default();
 npm install
 npm run dev
 ```
+
+
+### RLSエラー（`new row violates row-level security policy for table "notes"`）の対処
+このエラーは、`insert` 時に `user_id` が空またはログイン中ユーザーと一致しない場合に発生します。
+
+- フロント側で `supabase.auth.getUser()` を呼び、`insert` 時に `user_id: user.id` を明示して送る
+- すでに作成済みテーブルには以下を適用して、`user_id` のデフォルトを `auth.uid()` にする
+
+```sql
+alter table public.notes alter column user_id set default auth.uid();
+alter table public.links alter column user_id set default auth.uid();
+```
+
+OTP直後はセッション反映前に書き込みが走ることがあるため、未ログイン時は `/auth` へ戻す実装も有効です。
 
 ## 主要コンポーネント
 - `Home` : `src/app/page.tsx`

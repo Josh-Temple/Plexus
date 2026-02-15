@@ -58,12 +58,19 @@ export default function HomePage() {
 
   const createNote = async () => {
     try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error("ログインが必要です");
+
       const body_hash = await cheapHash(newBody);
       const exact = notes.find((n) => n.body_hash === body_hash);
       if (exact) setToast(`完全一致の可能性: ${exact.title}`);
       const { data, error } = await supabase
         .from("notes")
-        .insert({ title: newTitle || "Untitled", body: newBody, body_hash, inbox: true, pinned: false })
+        .insert({ title: newTitle || "Untitled", body: newBody, body_hash, inbox: true, pinned: false, user_id: user.id })
         .select("id")
         .single();
       if (error) throw error;
