@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { cheapHash } from "@/lib/noteUtils";
@@ -11,6 +11,7 @@ import { Note } from "@/types/db";
 
 export default function HomePage() {
   const router = useRouter();
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "inbox" | "pinned">("all");
@@ -96,10 +97,78 @@ export default function HomePage() {
     await load();
   };
 
+  const importNotes = async (files: FileList | null) => {
+    if (!files?.length) return;
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) throw userError;
+      if (!user) throw new Error("ログインが必要です");
+
+      let importedCount = 0;
+
+      for (const file of Array.from(files)) {
+        const body = await file.text();
+        const title = file.name.replace(/\.[^.]+$/, "") || "Untitled";
+        const body_hash = await cheapHash(body);
+        const existing = notes.find((n) => n.title === title);
+
+        if (existing) {
+          const shouldOverwrite = window.confirm(`「${title}」は既に存在します。上書きしますか？`);
+          if (!shouldOverwrite) continue;
+
+          const { error } = await supabase
+            .from("notes")
+            .update({ body, body_hash, updated_at: new Date().toISOString() })
+            .eq("id", existing.id);
+
+          if (error) throw error;
+          importedCount += 1;
+          continue;
+        }
+
+        const { error } = await supabase
+          .from("notes")
+          .insert({ title, body, body_hash, inbox: true, pinned: false, user_id: user.id });
+
+        if (error) throw error;
+        importedCount += 1;
+      }
+
+      await load();
+      setToast(importedCount > 0 ? `${importedCount}件インポートしました` : "インポートをスキップしました");
+    } catch (error) {
+      setToast((error as Error).message);
+    }
+  };
+
   return (
     <div className="relative flex min-h-screen flex-col gap-3 p-3 pb-24">
       <Toast message={toast} />
       <h1 className="text-2xl font-bold">Plexus</h1>
+      <div>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".md,.txt,text/markdown,text/plain"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            importNotes(e.target.files);
+            e.currentTarget.value = "";
+          }}
+        />
+        <button
+          className="rounded-lg bg-white/10 px-3 py-2 text-sm"
+          onClick={() => importInputRef.current?.click()}
+        >
+          インポート
+        </button>
+      </div>
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
