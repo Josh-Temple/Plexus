@@ -21,16 +21,23 @@ export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks }: Props)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
+    setTitle(note.title);
+    setBody(note.body);
+  }, [note.body, note.title, note.id]);
+
+  useEffect(() => {
     const timer = setTimeout(async () => {
       await onAutoSave({ title, body, body_hash: note.body_hash });
       await onSyncLinks(body);
     }, 500);
+
     return () => clearTimeout(timer);
   }, [title, body, onAutoSave, onSyncLinks, note.body_hash]);
 
   const suggestions = useMemo(() => {
     const token = body.split("[[").pop()?.toLowerCase() ?? "";
     if (!showSuggest) return [];
+
     return candidates
       .filter((item) => item.id !== note.id)
       .filter((item) => item.title.toLowerCase().includes(token) || item.body.toLowerCase().includes(token))
@@ -57,17 +64,15 @@ export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks }: Props)
 
   return (
     <section className="flex h-full flex-col gap-3 pb-16">
-      <input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Title"
-        className="w-full rounded-lg bg-panel px-3 py-2 text-lg"
-      />
-      <button className="self-start rounded bg-white/10 px-3 py-1 text-sm" onClick={() => setPreview((v) => !v)}>
+      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="input-base text-base" />
+      <button className="btn-ghost self-start" onClick={() => setPreview((value) => !value)}>
         {preview ? "Edit" : "Preview"}
       </button>
       {preview ? (
-        <article className="prose prose-invert max-w-none rounded-lg bg-panel p-3" dangerouslySetInnerHTML={{ __html: markdownLite(body) }} />
+        <article
+          className="surface prose prose-invert max-w-none p-3"
+          dangerouslySetInnerHTML={{ __html: markdownLite(body) }}
+        />
       ) : (
         <textarea
           ref={textareaRef}
@@ -77,8 +82,8 @@ export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks }: Props)
             setShowSuggest(e.target.value.slice(0, e.target.selectionStart).includes("[["));
           }}
           onKeyDown={onEnterBullet}
-          placeholder="Write your note..."
-          className="min-h-[55vh] w-full rounded-lg bg-panel p-3"
+          placeholder="Write your note"
+          className="input-base min-h-[55vh] p-3"
         />
       )}
       <SuggestBar visible={showSuggest} suggestions={suggestions} onSelect={onPickSuggestion} />
