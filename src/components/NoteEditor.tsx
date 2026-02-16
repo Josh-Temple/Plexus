@@ -76,7 +76,7 @@ export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks }: Props)
       </button>
       {preview ? (
         <article
-          className="surface prose prose-invert max-w-none p-3"
+          className="surface markdown-preview max-w-none p-3"
           dangerouslySetInnerHTML={{ __html: markdownLite(body) }}
         />
       ) : (
