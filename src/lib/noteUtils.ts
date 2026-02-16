@@ -99,6 +99,13 @@ export const markdownLite = (body: string) => {
       continue;
     }
 
+    const horizontalRuleMatch = normalizedLine.match(/^-{3,}\s*$/u);
+    if (horizontalRuleMatch) {
+      closeAllLists();
+      blocks.push("<hr />");
+      continue;
+    }
+
     const listMatch = line.match(/^([\t \u3000]*)([-*+]|[・●])[ \u3000]+(.+)$/u);
     if (listMatch) {
       const indentLevel = normalizeIndent(listMatch[1]);
