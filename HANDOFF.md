@@ -18,6 +18,12 @@
 
 # 2. ここまでにやったこと（箇条書き、重要なコミット/PRがあればID）
 
+- 2026-02-16 本セッションで **Phase 1 (Stability & Onboarding)** の着手を実施。
+- `src/lib/supabaseClient.ts` に envガード（不足キー検出 + `isSupabaseConfigured`）を追加し、未設定時の起動クラッシュを回避。
+- `src/components/SetupRequired.tsx` を新規追加し、不足している `.env.local` キー名を画面表示するガイドUIを導入。
+- `/`・`/auth`・`/note/[id]` で env未設定時に SetupRequired を表示するよう統一。
+- `npm run lint` / `npm run typecheck` / `curl` による `/`, `/auth`, `/note/test-id` のHTTP 200確認を実施。
+- Playwrightで `/auth` の setup-required 画面スクリーンショットを取得。
 - 本セッションでMarkdownコードブロック（```）のPreview描画を追加。
 - 本セッションでコードブロック右上にCopyボタンを追加し、クリックでクリップボードへコピーできるように対応。
 - 本セッションでCopy成功/失敗のToast通知をNote画面に連携。
@@ -280,7 +286,7 @@ npm run typecheck
 
 ---
 
-**次に着手するタスクはこれ:** `.env.local` を正しく設定した状態で「ヘッダーが入力してもプレビューに反映されない」不具合を再現し、`NoteEditor` と `markdownLite` のどちらが原因かを切り分ける。
+**次に着手するタスクはこれ:** `.env.local` を正しく設定した状態で Phase 1 の残件（env設定ありで `/auth`・`/`・`/note/[id]` の動作確認）を完了し、その後に「ヘッダーが入力してもプレビューに反映されない」不具合の再現/切り分けに着手する。
 
 ---
 
@@ -297,8 +303,8 @@ npm run typecheck
 
 ## タスク一覧（優先順）
 ### P0: セットアップ/障害耐性
-1. `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` 未設定時に、クラッシュではなく設定ガイドUIを表示。
-2. `/auth`・`/` で「設定不足」時の文言と遷移導線を統一。
+1. ✅ `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` 未設定時に、クラッシュではなく設定ガイドUIを表示。
+2. ✅ `/auth`・`/`（加えて `/note/[id]`）で「設定不足」時の導線を統一。
 3. E2E最小確認（auth -> home -> note open）が落ちないことを確認。
 
 ### P1: Homeの使いやすさ

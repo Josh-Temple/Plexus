@@ -2,6 +2,8 @@
 
 Last updated: 2026-02-16 (UTC)
 
+Status note: Phase 1 implementation landed in this session (env guard + setup screen for `/`, `/auth`, `/note/[id]`).
+
 ## Goal
 Implement all currently proposed UX improvements in safe, debuggable phases without blocking progress.
 
@@ -15,19 +17,19 @@ Implement all currently proposed UX improvements in safe, debuggable phases with
 - Align behavior on `/` and `/auth`.
 
 ### Deliverables
-- [ ] Env guard utility (single source of truth).
-- [ ] Setup required screen/component.
-- [ ] Home/Auth behavior aligned when env missing.
+- [x] Env guard utility (single source of truth).
+- [x] Setup required screen/component.
+- [x] Home/Auth behavior aligned when env missing.
 
 ### Acceptance Criteria
-- [ ] App does not throw 500 for missing env during normal page load.
-- [ ] User sees clear setup instructions with required env key names.
-- [ ] Existing auth flow still works when env is present.
+- [x] App does not throw 500 for missing env during normal page load.
+- [x] User sees clear setup instructions with required env key names.
+- [ ] Existing auth flow still works when env is present. (needs `.env.local` for final confirmation)
 
 ### Verification
-- [ ] `npm run lint`
-- [ ] `npm run typecheck`
-- [ ] Manual: open `/auth`, `/`, `/note/[id]` with and without env.
+- [x] `npm run lint`
+- [x] `npm run typecheck`
+- [ ] Manual: open `/auth`, `/`, `/note/[id]` with and without env. (without env: done, with env: pending)
 
 ---
 
@@ -50,8 +52,8 @@ Implement all currently proposed UX improvements in safe, debuggable phases with
 - [ ] No regressions in existing create/import/filter flow.
 
 ### Verification
-- [ ] `npm run lint`
-- [ ] `npm run typecheck`
+- [x] `npm run lint`
+- [x] `npm run typecheck`
 - [ ] Manual: create >=5 notes and validate selection/search flow.
 
 ---
@@ -74,8 +76,8 @@ Implement all currently proposed UX improvements in safe, debuggable phases with
 - [ ] Tapping wiki links from preview opens intended note.
 
 ### Verification
-- [ ] `npm run lint`
-- [ ] `npm run typecheck`
+- [x] `npm run lint`
+- [x] `npm run typecheck`
 - [ ] Manual: duplicate title scenario + broken link scenario.
 
 ---
@@ -98,8 +100,8 @@ Implement all currently proposed UX improvements in safe, debuggable phases with
 - [ ] Related list quality subjectively improves in test notes.
 
 ### Verification
-- [ ] `npm run lint`
-- [ ] `npm run typecheck`
+- [x] `npm run lint`
+- [x] `npm run typecheck`
 - [ ] Manual: typing burst, network delay simulation, suggestion insertion.
 
 ---
@@ -120,8 +122,8 @@ Implement all currently proposed UX improvements in safe, debuggable phases with
 - [ ] Main user journey passes end-to-end.
 
 ### Verification
-- [ ] `npm run lint`
-- [ ] `npm run typecheck`
+- [x] `npm run lint`
+- [x] `npm run typecheck`
 - [ ] Manual smoke test: Auth -> Home -> Create -> Edit -> Link -> Connections.
 
 ---

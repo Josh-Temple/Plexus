@@ -7,7 +7,8 @@ import { BottomSheet } from "@/components/BottomSheet";
 import { NoteEditor } from "@/components/NoteEditor";
 import { Toast } from "@/components/Toast";
 import { extractWikiLinks, cheapHash } from "@/lib/noteUtils";
-import { supabase } from "@/lib/supabaseClient";
+import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
+import { SetupRequired } from "@/components/SetupRequired";
 import { Note } from "@/types/db";
 
 type LinkRow = { id: string; from_note_id: string; to_note_id: string; notes?: { title: string } | null };
@@ -45,6 +46,7 @@ export default function NotePage() {
   }, [params.id]);
 
   useEffect(() => {
+    if (!isSupabaseConfigured) return;
     load();
   }, [load]);
 
@@ -117,6 +119,15 @@ export default function NotePage() {
       .sort((a, b) => b.score - a.score)
       .slice(0, 8);
   }, [allNotes, note]);
+
+  if (!isSupabaseConfigured) {
+    return (
+      <SetupRequired
+        title="Note view is unavailable"
+        description="This page needs Supabase env configuration before notes can be opened."
+      />
+    );
+  }
 
   if (!note) return <div className="p-4 text-sm text-muted">Loading…</div>;
 
