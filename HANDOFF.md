@@ -3,8 +3,8 @@
 > 運用ルール: **このHANDOFF.mdはセッションごとに必ず更新すること**（作業有無にかかわらず、実施内容/未実施内容を追記）。
 
 ## 現在のゴール（優先順）
-1. **Obsidian的な知識ネットワーク機能の再現を安定化**（`[[...]]`リンク同期、Backlinks/Outgoing/Related表示の実利用レベル化）。
-2. **入力・表示（Preview）の安定化**（カーソルジャンプ修正、ヘッダー/水平線のプレビュー反映不具合を修正）。
+1. **ノート編集UXの改善**（初期表示はPreview、入力欄タップで編集モードへ遷移、カードUI強化）。
+2. **Obsidian的な知識ネットワーク機能の再現を安定化**（`[[...]]`リンク同期、Backlinks/Outgoing/Related表示の実利用レベル化）。
 3. 既存UI変更後の回帰確認（Home/Auth/Note編集/BottomSheet/SuggestBar/Toast）。
 
 ## Doneの定義
@@ -20,6 +20,8 @@
 
 - 本セッションで `---` の水平線（`<hr />`）をPreviewで表示できるように対応（コミット予定）。
 - 本セッションでバレットリスト階層のPreview反映を追加修正（コミット予定）。
+- 本セッションで NoteEditor を「初期Preview表示 + タップで編集開始」の挙動に変更。
+- 本セッションで NoteEditor をカード風UIに統一し、タイトル表示を強調。
 - `src/lib/noteUtils.ts` でインデント幅を2スペース単位の階層として正規化し、ネスト解釈を安定化。
 - `src/app/globals.css` でネストした`ul`の見た目を強化（2階層目: circle, 3階層目以降: square）。
 - 本セッションで不具合修正を実施（未コミット）。
@@ -47,8 +49,10 @@
    - 影響範囲: ノート詳細、links同期、related/backlinks/outgoing表示。
 
 3. `src/components/NoteEditor.tsx`
-   - `note` 切替時に `title/body` を `useEffect` で再同期する処理を追加。
-   - 影響範囲: ノート編集体験、プレビュー表示整合性。
+   - デフォルト表示をPreviewへ変更。
+   - Preview時のタイトル/本文をタップするとEditに切り替わる挙動を追加。
+   - カード風ラッパーと目立つタイトル表示（大きめタイポ）に変更。
+   - 影響範囲: ノート編集体験、プレビュー導線、ビジュアル。
 
 4. `src/app/globals.css`
    - 共通クラス（`surface`, `input-base`, `btn-ghost`, `btn-primary`）追加。
@@ -87,6 +91,9 @@
 - 例外: `supabaseUrl is required.`（`src/lib/supabaseClient.ts` 初期化時）。
 
 ## 修正済み（今回）
+- ユーザー要望「アプリ起動時はデフォルトでプレビュー表示」に対応。
+- ユーザー要望「入力欄タップで編集モード」に対応（Previewタイトル/本文をタップでEdit遷移）。
+- ユーザー要望「カードっぽいUI + ページタイトル目立たせる」に対応（タイトル表示を強調）。
 - ユーザー要望の「`---`で水平線を出したい」に対して、`markdownLite`で水平線記法をサポート。
 - ユーザー報告の「バレットリストの階層がプレビューで表現されない」症状に対して、ネスト階層の解釈とCSS表示を改善。
 - ユーザー報告の「ヘッダー入力が表示に反映されない」症状に対して、`markdownLite`の見出し判定を強化（先頭空白と全角`＃`に対応）。
@@ -131,6 +138,8 @@
 # 6. テスト状況（実行したテスト、結果、未実施のテスト）
 
 ## 実行済み
+- `npm run lint` -> 成功（NoteEditorのUI変更後）
+- `npm run typecheck` -> 成功（NoteEditorのUI変更後）
 - `npm run typecheck` -> 成功（今回の追加修正後もTypeScriptエラーなし）
 - `npm run lint` -> 成功（今回の追加修正後もESLint warning/error なし）
 - `npm run lint` -> 成功（ESLint warning/error なし）
