@@ -18,6 +18,9 @@
 
 # 2. ここまでにやったこと（箇条書き、重要なコミット/PRがあればID）
 
+- 本セッションでバレットリスト階層のPreview反映を追加修正（コミット予定）。
+- `src/lib/noteUtils.ts` でインデント幅を2スペース単位の階層として正規化し、ネスト解釈を安定化。
+- `src/app/globals.css` でネストした`ul`の見た目を強化（2階層目: circle, 3階層目以降: square）。
 - 本セッションで不具合修正を実施（未コミット）。
 - `src/components/NoteEditor.tsx` で、**同一ノート編集中の再同期を抑止**し、ノート切替時のみ`title/body`を再初期化するように変更。
   - これにより autosave 後の再描画で発生していた入力カーソルジャンプを抑制。
@@ -82,6 +85,7 @@
 - 例外: `supabaseUrl is required.`（`src/lib/supabaseClient.ts` 初期化時）。
 
 ## 修正済み（今回）
+- ユーザー報告の「バレットリストの階層がプレビューで表現されない」症状に対して、ネスト階層の解釈とCSS表示を改善。
 - ユーザー報告の「ヘッダー入力が表示に反映されない」症状に対して、`markdownLite`の見出し判定を強化（先頭空白と全角`＃`に対応）。
 - 入力中にカーソルが飛ぶ症状に対して、`NoteEditor`の再同期条件を「note.id変更時のみ」に限定。
 ## 未確認
@@ -124,6 +128,8 @@
 # 6. テスト状況（実行したテスト、結果、未実施のテスト）
 
 ## 実行済み
+- `npm run typecheck` -> 成功（今回の追加修正後もTypeScriptエラーなし）
+- `npm run lint` -> 成功（今回の追加修正後もESLint warning/error なし）
 - `npm run lint` -> 成功（ESLint warning/error なし）
 - `npm run typecheck` -> 成功（TypeScriptエラーなし）
 - `npm run dev` + `curl /auth` -> 500再現（env未設定時）
