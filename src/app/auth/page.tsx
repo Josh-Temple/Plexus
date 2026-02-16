@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
+import { SetupRequired } from "@/components/SetupRequired";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -18,6 +19,15 @@ export default function AuthPage() {
     await supabase.auth.signOut();
     router.refresh();
   };
+
+  if (!isSupabaseConfigured) {
+    return (
+      <SetupRequired
+        title="Authentication setup is incomplete"
+        description="Sign-in requires Supabase environment variables to be configured first."
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col justify-center gap-3 p-4">

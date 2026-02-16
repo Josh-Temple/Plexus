@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
+import { SetupRequired } from "@/components/SetupRequired";
 import { handleBulletListKeyDown } from "@/lib/bulletListEditor";
 import { cheapHash } from "@/lib/noteUtils";
 import { BottomSheet } from "@/components/BottomSheet";
@@ -47,6 +48,8 @@ export default function HomePage() {
   );
 
   useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
     const run = async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
@@ -59,6 +62,8 @@ export default function HomePage() {
   }, [load, router]);
 
   useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
     const timer = setTimeout(() => {
       load(query, filter);
     }, 250);
@@ -176,6 +181,15 @@ export default function HomePage() {
       setToast(getErrorMessage(error));
     }
   };
+
+  if (!isSupabaseConfigured) {
+    return (
+      <SetupRequired
+        title="Plexus setup is incomplete"
+        description="Home requires a configured Supabase project before notes can be loaded."
+      />
+    );
+  }
 
   return (
     <div className="relative flex min-h-screen flex-col gap-4 p-4 pb-24">
