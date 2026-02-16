@@ -131,7 +131,7 @@ export default function NotePage() {
           Connections
         </button>
       </div>
-      <NoteEditor note={note} candidates={allNotes} onAutoSave={onAutoSave} onSyncLinks={onSyncLinks} />
+      <NoteEditor note={note} candidates={allNotes} onAutoSave={onAutoSave} onSyncLinks={onSyncLinks} onNotify={setToast} />
       <BottomSheet open={openSheet} onClose={() => setOpenSheet(false)} title="Connections">
         <section className="mb-4">
           <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">Related</h3>

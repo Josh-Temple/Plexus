@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Note } from "@/types/db";
 import { markdownLite } from "@/lib/noteUtils";
 import { handleBulletListKeyDown } from "@/lib/bulletListEditor";
@@ -11,9 +11,10 @@ type Props = {
   candidates: Note[];
   onAutoSave: (patch: Pick<Note, "title" | "body" | "body_hash">) => Promise<void>;
   onSyncLinks: (body: string) => Promise<void>;
+  onNotify?: (message: string) => void;
 };
 
-export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks }: Props) {
+export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks, onNotify }: Props) {
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body);
   const [preview, setPreview] = useState(true);
@@ -59,6 +60,27 @@ export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks }: Props)
     });
   };
 
+
+  const onPreviewClick = async (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+
+    const copyButton = target.closest(".code-copy-btn") as HTMLButtonElement | null;
+    if (copyButton?.dataset.code) {
+      event.stopPropagation();
+      try {
+        await navigator.clipboard.writeText(decodeURIComponent(copyButton.dataset.code));
+        onNotify?.("Code copied.");
+      } catch {
+        onNotify?.("Failed to copy code.");
+      }
+      return;
+    }
+
+    if (target.closest("a")) return;
+
+    setPreview(false);
+  };
   const onPickSuggestion = (picked: Note) => {
     const cursor = textareaRef.current?.selectionStart ?? body.length;
     const before = body.slice(0, cursor);
@@ -97,16 +119,23 @@ export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks }: Props)
         )}
 
         {preview ? (
-          <button
-            type="button"
-            onClick={() => setPreview(false)}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={onPreviewClick}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setPreview(false);
+              }
+            }}
             className="w-full rounded-xl border border-white/10 bg-black/20 p-3 text-left"
           >
             <article
               className="markdown-preview max-w-none"
               dangerouslySetInnerHTML={{ __html: markdownLite(body) || "<p class='text-muted'>Tap to edit your note</p>" }}
             />
-          </button>
+          </div>
         ) : (
           <textarea
             ref={textareaRef}
