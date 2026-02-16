@@ -30,11 +30,30 @@ const escapeHtml = (value: string) =>
 const renderInline = (value: string) =>
   escapeHtml(value).replace(/\[\[([^\]]+)\]\]/g, (_raw, text: string) => `<a href=\"/\">${escapeHtml(text)}</a>`);
 
+const renderCodeBlock = (code: string, language: string) => {
+  const safeCode = escapeHtml(code);
+  const safeLanguage = escapeHtml(language.trim());
+  const encodedCode = encodeURIComponent(code);
+
+  return [
+    "<div class=\"code-block\">",
+    "<div class=\"code-block-header\">",
+    `<span class=\"code-block-language\">${safeLanguage || "code"}</span>`,
+    `<button type=\"button\" class=\"code-copy-btn\" data-code=\"${encodedCode}\">Copy</button>`,
+    "</div>",
+    `<pre><code>${safeCode}</code></pre>`,
+    "</div>",
+  ].join("");
+};
+
 export const markdownLite = (body: string) => {
   const lines = body.split("\n");
   const blocks: string[] = [];
   const listIndents: number[] = [];
   const listItemOpen: boolean[] = [];
+  let inCodeBlock = false;
+  let codeLanguage = "";
+  let codeLines: string[] = [];
 
   const normalizeIndent = (indent: string) => {
     const width = Array.from(indent).reduce((count, char) => {
@@ -83,6 +102,29 @@ export const markdownLite = (body: string) => {
   };
 
   for (const line of lines) {
+    const codeFenceMatch = line.match(/^```([\w-]*)\s*$/u);
+    if (codeFenceMatch) {
+      closeAllLists();
+
+      if (!inCodeBlock) {
+        inCodeBlock = true;
+        codeLanguage = codeFenceMatch[1] ?? "";
+        codeLines = [];
+      } else {
+        blocks.push(renderCodeBlock(codeLines.join("\n"), codeLanguage));
+        inCodeBlock = false;
+        codeLanguage = "";
+        codeLines = [];
+      }
+
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeLines.push(line);
+      continue;
+    }
+
     const trimmedStart = line.replace(/^[\s\u3000]+/u, "");
     const normalizedLine = trimmedStart.replace(/^＃+/u, (hashes) => "#".repeat(hashes.length));
 
@@ -123,6 +165,10 @@ export const markdownLite = (body: string) => {
 
     closeAllLists();
     blocks.push(`<p>${renderInline(line)}</p>`);
+  }
+
+  if (inCodeBlock) {
+    blocks.push(renderCodeBlock(codeLines.join("\n"), codeLanguage));
   }
 
   closeAllLists();

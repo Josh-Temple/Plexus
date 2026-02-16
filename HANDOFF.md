@@ -18,6 +18,9 @@
 
 # 2. ここまでにやったこと（箇条書き、重要なコミット/PRがあればID）
 
+- 本セッションでMarkdownコードブロック（```）のPreview描画を追加。
+- 本セッションでコードブロック右上にCopyボタンを追加し、クリックでクリップボードへコピーできるように対応。
+- 本セッションでCopy成功/失敗のToast通知をNote画面に連携。
 - 本セッションで `---` の水平線（`<hr />`）をPreviewで表示できるように対応（コミット予定）。
 - 本セッションでバレットリスト階層のPreview反映を追加修正（コミット予定）。
 - 本セッションで NoteEditor を「初期Preview表示 + タップで編集開始」の挙動に変更。
@@ -39,42 +42,60 @@
 
 # 3. 変更した主要ファイル（パス + 変更概要 + 影響範囲）
 
-1. `src/app/page.tsx`
+1. `src/lib/noteUtils.ts`
+   - Markdownのコードフェンス（```lang ... ```）をPreviewでHTML化し、ヘッダーに言語表示＋Copyボタンを出すように拡張。
+   - 未クローズのコードフェンス終端なしケースでも末尾までをコードブロックとして描画。
+   - 影響範囲: ノートPreviewレンダリング（コード表示/コピーUI）。
+
+2. `src/components/NoteEditor.tsx`
+   - Preview本文をクリック可能コンテナに変更し、コードコピーボタンクリック時は編集遷移せずClipboardコピーを実行。
+   - コピー成功/失敗を親へ通知できる`onNotify`を追加。
+   - 影響範囲: ノートPreview操作、コピー体験、Toast連携。
+
+3. `src/app/note/[id]/page.tsx`
+   - `NoteEditor`へ`onNotify={setToast}`を渡し、コピー結果をToastで表示。
+   - 影響範囲: ノート詳細画面の通知。
+
+8. `src/app/globals.css`
+   - `.markdown-preview`配下にコードブロック用スタイル（ヘッダー、言語ラベル、Copyボタン、`pre/code`）を追加。
+   - 影響範囲: Previewの見た目。
+
+5. `src/app/page.tsx`
    - Home画面の構成・文言を英語化、ボタン/フィルタ/作成シートのUI再編。
    - `FILTER_OPTIONS` / `getErrorMessage` を導入。
    - 影響範囲: ノート一覧表示、検索・フィルタ、作成、import導線。
 
-2. `src/app/note/[id]/page.tsx`
+6. `src/app/note/[id]/page.tsx`
    - 文言英語化、Connectionsシート見出し整理、エラーメッセージ処理整理。
    - 影響範囲: ノート詳細、links同期、related/backlinks/outgoing表示。
 
-3. `src/components/NoteEditor.tsx`
+7. `src/components/NoteEditor.tsx`
    - デフォルト表示をPreviewへ変更。
    - Preview時のタイトル/本文をタップするとEditに切り替わる挙動を追加。
    - カード風ラッパーと目立つタイトル表示（大きめタイポ）に変更。
    - 影響範囲: ノート編集体験、プレビュー導線、ビジュアル。
 
-4. `src/app/globals.css`
+8. `src/app/globals.css`
    - 共通クラス（`surface`, `input-base`, `btn-ghost`, `btn-primary`）追加。
    - 影響範囲: Auth/Home/Note/BottomSheet/SuggestBar/Toast の外観。
 
-5. `src/components/BottomSheet.tsx`
+9. `src/components/BottomSheet.tsx`
    - 背景/閉じるボタンのスタイル調整、文言英語化。
    - 影響範囲: 作成シート、Connectionsシート。
 
-6. `src/components/SuggestBar.tsx`
+10. `src/components/SuggestBar.tsx`
    - サジェストバーのスタイル最小化。
    - 影響範囲: `[[` 入力時の候補表示。
 
-7. `src/components/Toast.tsx`
+11. `src/components/Toast.tsx`
    - Toast外観を共通surface化。
    - 影響範囲: 全画面通知表示。
 
-8. `src/app/auth/page.tsx`
+12. `src/app/auth/page.tsx`
    - 文言英語化・ボタンスタイル共通化。
    - 影響範囲: OTPログイン画面。
 
-9. `src/app/layout.tsx`
+13. `src/app/layout.tsx`
    - `<html lang="ja">` -> `<html lang="en">`。
    - 影響範囲: ページ言語属性。
 
@@ -138,6 +159,8 @@
 # 6. テスト状況（実行したテスト、結果、未実施のテスト）
 
 ## 実行済み
+- `npm run lint` -> 成功（コードブロックPreview/Copy対応後）
+- `npm run typecheck` -> 成功（コードブロックPreview/Copy対応後）
 - `npm run lint` -> 成功（NoteEditorのUI変更後）
 - `npm run typecheck` -> 成功（NoteEditorのUI変更後）
 - `npm run typecheck` -> 成功（今回の追加修正後もTypeScriptエラーなし）
