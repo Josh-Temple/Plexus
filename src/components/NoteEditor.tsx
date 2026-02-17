@@ -1,26 +1,43 @@
 "use client";
 
 import { MouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Note } from "@/types/db";
 import { markdownLite } from "@/lib/noteUtils";
 import { handleBulletListKeyDown } from "@/lib/bulletListEditor";
 import { SuggestBar } from "./SuggestBar";
 
+type SaveState = "saving" | "saved" | "error";
+
 type Props = {
   note: Note;
   candidates: Note[];
+  insertRequest?: { title: string; nonce: number } | null;
+  resolveWikiLink: (title: string) => { href: string; status?: "resolved" | "ambiguous" | "unresolved" };
   onAutoSave: (patch: Pick<Note, "title" | "body" | "body_hash">) => Promise<void>;
   onSyncLinks: (body: string) => Promise<void>;
   onNotify?: (message: string) => void;
+  onSaveStateChange?: (state: SaveState) => void;
 };
 
-export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks, onNotify }: Props) {
+export function NoteEditor({
+  note,
+  candidates,
+  insertRequest,
+  resolveWikiLink,
+  onAutoSave,
+  onSyncLinks,
+  onNotify,
+  onSaveStateChange,
+}: Props) {
+  const router = useRouter();
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body);
   const [preview, setPreview] = useState(true);
   const [showSuggest, setShowSuggest] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const loadedNoteIdRef = useRef(note.id);
+  const lastInsertedNonceRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (loadedNoteIdRef.current === note.id) return;
@@ -33,13 +50,29 @@ export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks, onNotify
   }, [note.id, note.body, note.title]);
 
   useEffect(() => {
+    if (!insertRequest) return;
+    if (lastInsertedNonceRef.current === insertRequest.nonce) return;
+
+    lastInsertedNonceRef.current = insertRequest.nonce;
+    setBody((current) => `${current.trimEnd()}\n[[${insertRequest.title}]]`);
+    setPreview(false);
+    onNotify?.(`Inserted [[${insertRequest.title}]].`);
+  }, [insertRequest, onNotify]);
+
+  useEffect(() => {
+    onSaveStateChange?.("saving");
     const timer = setTimeout(async () => {
-      await onAutoSave({ title, body, body_hash: note.body_hash });
-      await onSyncLinks(body);
+      try {
+        await onAutoSave({ title, body, body_hash: note.body_hash });
+        await onSyncLinks(body);
+        onSaveStateChange?.("saved");
+      } catch {
+        onSaveStateChange?.("error");
+      }
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [title, body, onAutoSave, onSyncLinks, note.body_hash]);
+  }, [title, body, onAutoSave, onSyncLinks, note.body_hash, onSaveStateChange]);
 
   const suggestions = useMemo(() => {
     const token = body.split("[[").pop()?.toLowerCase() ?? "";
@@ -60,7 +93,6 @@ export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks, onNotify
     });
   };
 
-
   const onPreviewClick = async (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement | null;
     if (!target) return;
@@ -77,10 +109,25 @@ export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks, onNotify
       return;
     }
 
-    if (target.closest("a")) return;
+    const anchor = target.closest("a");
+    if (anchor) {
+      const status = anchor.getAttribute("data-link-status");
+      if (status === "ambiguous") {
+        event.preventDefault();
+        onNotify?.("Ambiguous wiki-link. Resolve it from Connections.");
+      } else if (status === "unresolved") {
+        event.preventDefault();
+        onNotify?.("Unresolved wiki-link. Create it from Connections.");
+      } else {
+        event.preventDefault();
+        router.push((anchor.getAttribute("href") ?? "/") as never);
+      }
+      return;
+    }
 
     setPreview(false);
   };
+
   const onPickSuggestion = (picked: Note) => {
     const cursor = textareaRef.current?.selectionStart ?? body.length;
     const before = body.slice(0, cursor);
@@ -133,7 +180,10 @@ export function NoteEditor({ note, candidates, onAutoSave, onSyncLinks, onNotify
           >
             <article
               className="markdown-preview max-w-none"
-              dangerouslySetInnerHTML={{ __html: markdownLite(body) || "<p class='text-muted'>Tap to edit your note</p>" }}
+              dangerouslySetInnerHTML={{
+                __html:
+                  markdownLite(body, { resolveWikiLink }) || "<p class='text-muted'>Tap to edit your note</p>",
+              }}
             />
           </div>
         ) : (

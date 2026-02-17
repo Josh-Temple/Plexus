@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BottomSheet } from "@/components/BottomSheet";
 import { NoteEditor } from "@/components/NoteEditor";
@@ -13,6 +13,7 @@ import { Note } from "@/types/db";
 
 type LinkRow = { id: string; from_note_id: string; to_note_id: string; notes?: { title: string } | null };
 type RawLinkRow = Omit<LinkRow, "notes"> & { notes?: { title: string } | { title: string }[] | null };
+type SaveState = "saving" | "saved" | "error";
 
 const normalizeLinkRows = (rows: RawLinkRow[] | null | undefined): LinkRow[] =>
   (rows ?? []).map((row) => ({
@@ -22,14 +23,19 @@ const normalizeLinkRows = (rows: RawLinkRow[] | null | undefined): LinkRow[] =>
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : "Something went wrong.");
 
+const getUniqueLinkTitles = (body: string) => [...new Set(extractWikiLinks(body))];
+
 export default function NotePage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const [note, setNote] = useState<Note | null>(null);
   const [allNotes, setAllNotes] = useState<Note[]>([]);
   const [backlinks, setBacklinks] = useState<LinkRow[]>([]);
   const [outgoing, setOutgoing] = useState<LinkRow[]>([]);
   const [openSheet, setOpenSheet] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [insertRequest, setInsertRequest] = useState<{ title: string; nonce: number } | null>(null);
 
   const load = useCallback(async () => {
     const [{ data: single }, { data: notes }, { data: back }, { data: out }] = await Promise.all([
@@ -51,16 +57,15 @@ export default function NotePage() {
   }, [load]);
 
   const onAutoSave = async (patch: Pick<Note, "title" | "body" | "body_hash">) => {
-    try {
-      const body_hash = await cheapHash(patch.body);
-      const { error } = await supabase
-        .from("notes")
-        .update({ title: patch.title, body: patch.body, body_hash, updated_at: new Date().toISOString() })
-        .eq("id", params.id);
+    const body_hash = await cheapHash(patch.body);
+    const { error } = await supabase
+      .from("notes")
+      .update({ title: patch.title, body: patch.body, body_hash, updated_at: new Date().toISOString() })
+      .eq("id", params.id);
 
-      if (error) setToast(error.message);
-    } catch (error) {
-      setToast(getErrorMessage(error));
+    if (error) {
+      setToast(error.message);
+      throw error;
     }
   };
 
@@ -70,20 +75,30 @@ export default function NotePage() {
       error: userError,
     } = await supabase.auth.getUser();
 
-    if (userError) return setToast(userError.message);
-    if (!user) return setToast("You need to sign in.");
+    if (userError) {
+      setToast(userError.message);
+      throw userError;
+    }
+    if (!user) {
+      const authError = new Error("You need to sign in.");
+      setToast(authError.message);
+      throw authError;
+    }
 
-    const parsed = extractWikiLinks(body);
+    const parsed = getUniqueLinkTitles(body);
     const resolved = parsed
       .map((title) => {
-        const hit = allNotes.find((item) => item.title === title);
-        if (!hit) return null;
-        return hit.id;
+        const hits = allNotes.filter((item) => item.title === title);
+        if (hits.length !== 1) return null;
+        return hits[0].id;
       })
       .filter(Boolean) as string[];
 
     const { data: existing, error } = await supabase.from("links").select("id,to_note_id").eq("from_note_id", params.id);
-    if (error) return setToast(error.message);
+    if (error) {
+      setToast(error.message);
+      throw error;
+    }
 
     const have = new Set((existing ?? []).map((item) => item.to_note_id));
     const want = new Set(resolved);
@@ -96,10 +111,6 @@ export default function NotePage() {
       await supabase.from("links").insert(toInsert.map((to_note_id) => ({ from_note_id: params.id, to_note_id, user_id: user.id })));
     }
 
-    if (parsed.some((title) => allNotes.filter((item) => item.title === title).length > 1)) {
-      console.warn("Multiple title matches found; first match was used.");
-    }
-
     await load();
   };
 
@@ -110,15 +121,67 @@ export default function NotePage() {
     return allNotes
       .filter((item) => item.id !== note.id)
       .map((item) => {
-        const overlap = item.body
+        const titleOverlap = item.title
           .toLowerCase()
           .split(/\W+/)
           .filter((token) => words.has(token)).length;
-        return { item, score: overlap };
+        const bodyOverlap = item.body
+          .toLowerCase()
+          .split(/\W+/)
+          .filter((token) => words.has(token)).length;
+
+        return { item, score: titleOverlap * 3 + bodyOverlap };
       })
+      .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 8);
   }, [allNotes, note]);
+
+  const linkTitleStats = useMemo(() => {
+    if (!note) return [];
+
+    return getUniqueLinkTitles(note.body).map((title) => ({ title, hits: allNotes.filter((item) => item.title === title) }));
+  }, [allNotes, note]);
+
+  const unresolved = linkTitleStats.filter((item) => item.hits.length === 0);
+  const ambiguous = linkTitleStats.filter((item) => item.hits.length > 1);
+
+  const resolveWikiLink = useCallback(
+    (title: string) => {
+      const hits = allNotes.filter((item) => item.title === title);
+      if (hits.length === 1) return { href: `/note/${hits[0].id}`, status: "resolved" as const };
+      if (hits.length > 1) return { href: "#", status: "ambiguous" as const };
+      return { href: "#", status: "unresolved" as const };
+    },
+    [allNotes]
+  );
+
+  const createUnresolved = async (title: string) => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        const authError = new Error("You need to sign in.");
+        setToast(authError.message);
+        throw authError;
+      }
+
+      const body_hash = await cheapHash("");
+      const { data, error } = await supabase
+        .from("notes")
+        .insert({ title, body: "", body_hash, inbox: true, pinned: false, user_id: user.id })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+      setToast(`Created note: ${title}`);
+      await load();
+      router.push(`/note/${data.id}`);
+    } catch (error) {
+      setToast(getErrorMessage(error));
+    }
+  };
 
   if (!isSupabaseConfigured) {
     return (
@@ -138,18 +201,33 @@ export default function NotePage() {
         <Link href="/" className="text-sm text-muted">
           ← Home
         </Link>
-        <button className="btn-ghost" onClick={() => setOpenSheet(true)}>
-          Connections
-        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted">{saveState === "saving" ? "Saving..." : saveState === "error" ? "Save failed" : "Saved"}</span>
+          <button className="btn-ghost" onClick={() => setOpenSheet(true)}>
+            Connections
+          </button>
+        </div>
       </div>
-      <NoteEditor note={note} candidates={allNotes} onAutoSave={onAutoSave} onSyncLinks={onSyncLinks} onNotify={setToast} />
+      <NoteEditor
+        note={note}
+        candidates={allNotes}
+        insertRequest={insertRequest}
+        resolveWikiLink={resolveWikiLink}
+        onAutoSave={onAutoSave}
+        onSyncLinks={onSyncLinks}
+        onNotify={setToast}
+        onSaveStateChange={setSaveState}
+      />
       <BottomSheet open={openSheet} onClose={() => setOpenSheet(false)} title="Connections">
         <section className="mb-4">
           <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">Related</h3>
           <ul className="space-y-1 text-sm">
             {related.map(({ item }) => (
-              <li key={item.id}>
+              <li key={item.id} className="flex items-center justify-between gap-2">
                 <Link href={`/note/${item.id}`}>{item.title}</Link>
+                <button className="btn-ghost px-2 py-1" onClick={() => setInsertRequest({ title: item.title, nonce: Date.now() })}>
+                  Insert
+                </button>
               </li>
             ))}
           </ul>
@@ -170,14 +248,36 @@ export default function NotePage() {
             ))}
           </ul>
         </section>
+        <section className="mb-4">
+          <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">Ambiguous wiki links</h3>
+          <ul className="space-y-2 text-sm">
+            {ambiguous.length === 0 && <li className="text-muted">No ambiguous links.</li>}
+            {ambiguous.map((entry) => (
+              <li key={`amb-${entry.title}`} className="rounded-lg border border-amber-400/30 p-2">
+                <p className="mb-1">[[{entry.title}]] matches multiple notes:</p>
+                <div className="flex flex-wrap gap-2">
+                  {entry.hits.map((hit) => (
+                    <Link key={hit.id} href={`/note/${hit.id}`} className="btn-ghost px-2 py-1 text-xs">
+                      {hit.title} ({hit.id.slice(0, 6)})
+                    </Link>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
         <section>
-          <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">Suggested links</h3>
-          <ul className="space-y-1 text-sm">
-            {related
-              .filter(({ item }) => !outgoing.some((out) => out.to_note_id === item.id))
-              .map(({ item }) => (
-                <li key={item.id}>{item.title}</li>
-              ))}
+          <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">Unresolved links</h3>
+          <ul className="space-y-2 text-sm">
+            {unresolved.length === 0 && <li className="text-muted">No unresolved links.</li>}
+            {unresolved.map((entry) => (
+              <li key={`un-${entry.title}`} className="flex items-center justify-between rounded-lg border border-white/10 p-2">
+                <span>[[{entry.title}]]</span>
+                <button className="btn-primary px-2 py-1" onClick={() => createUnresolved(entry.title)}>
+                  Create
+                </button>
+              </li>
+            ))}
           </ul>
         </section>
       </BottomSheet>

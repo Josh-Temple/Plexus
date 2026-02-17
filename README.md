@@ -4,12 +4,15 @@ Android/モバイルファーストの **Zettelkasten特化 Obsidian風 PKM** MV
 
 ## 実装済み（MVP）
 - Auth（Supabase OTPログイン）
-- Home（検索 + inbox/pinned/all フィルタ + 最近順一覧 + FAB）
+- Home（検索 + inbox/pinned/all フィルタ + 最近順一覧 + FAB + 選択モード一括操作 + 検索ハイライト）
 - Note（textarea編集 / 自動保存 / 箇条書き継続 / Preview切替）
 - `[[...]]` 抽出による links 同期（差分更新）
 - Backlinks / Outgoing / Related / To connect をボトムシート表示
 - `[[` 入力時サジェストバー
 - クイック作成ボトムシート + 類似候補 + body_hash 完全一致警告
+- Noteの内部リンク解決（resolved/ambiguous/unresolved表示 + unresolved quick create）
+- 保存ステータス表示（Saving/Saved/Error）
+- Auth OTP sent-state UX（Resend cooldown / Edit email）
 
 ## セットアップ
 
