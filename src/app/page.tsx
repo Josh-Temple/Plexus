@@ -148,6 +148,9 @@ export default function HomePage() {
   };
 
   const removeNote = async (id: string) => {
+    const shouldDelete = window.confirm("Delete this note? This action cannot be undone.");
+    if (!shouldDelete) return;
+
     const { error } = await supabase.from("notes").delete().eq("id", id);
     if (error) setToast(error.message);
     await load();
@@ -222,6 +225,11 @@ export default function HomePage() {
 
   const applyBulk = async (action: "pin" | "inbox" | "delete") => {
     if (!selectedIds.length) return;
+
+    if (action === "delete") {
+      const shouldDelete = window.confirm(`Delete ${selectedIds.length} selected note(s)? This action cannot be undone.`);
+      if (!shouldDelete) return;
+    }
 
     let error: { message: string } | null = null;
     if (action === "delete") ({ error } = await supabase.from("notes").delete().in("id", selectedIds));
@@ -304,9 +312,16 @@ export default function HomePage() {
       <main className="space-y-2 p-4">
         {notes.map((note) => (
           <article key={note.id} className="surface p-3">
-            <div className="flex items-start justify-between gap-2">
-              <Link href={`/note/${note.id}`} className="block text-base font-medium">
-                {highlighted(note.title || "Untitled")}
+            <div className="flex items-start justify-between gap-3">
+              <Link href={`/note/${note.id}`} className="block flex-1 rounded-lg p-1 -m-1">
+                <p className="text-base font-medium">{highlighted(note.title || "Untitled")}</p>
+                <p className="mt-1 line-clamp-2 text-sm text-muted">{highlighted(note.body)}</p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
+                  <span className="rounded-full border border-white/10 px-2 py-1">{formatUpdatedAt(note.updated_at)}</span>
+                  {note.inbox && <span className="rounded-full border border-cyan-300/30 px-2 py-1 text-cyan-200">Inbox</span>}
+                  {note.pinned && <span className="rounded-full border border-amber-300/30 px-2 py-1 text-amber-200">Pinned</span>}
+                  <span className="rounded-full border border-white/10 px-2 py-1">{extractWikiLinks(note.body).length} wiki link(s)</span>
+                </div>
               </Link>
               {selectionMode ? (
                 <input type="checkbox" checked={selectedIds.includes(note.id)} onChange={() => toggleSelected(note.id)} aria-label="Select note" />
@@ -323,13 +338,6 @@ export default function HomePage() {
                   </button>
                 </div>
               )}
-            </div>
-            <p className="mt-1 line-clamp-2 text-sm text-muted">{highlighted(note.body)}</p>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
-              <span className="rounded-full border border-white/10 px-2 py-1">{formatUpdatedAt(note.updated_at)}</span>
-              {note.inbox && <span className="rounded-full border border-cyan-300/30 px-2 py-1 text-cyan-200">Inbox</span>}
-              {note.pinned && <span className="rounded-full border border-amber-300/30 px-2 py-1 text-amber-200">Pinned</span>}
-              <span className="rounded-full border border-white/10 px-2 py-1">{extractWikiLinks(note.body).length} wiki link(s)</span>
             </div>
           </article>
         ))}
