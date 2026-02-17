@@ -27,8 +27,19 @@ const escapeHtml = (value: string) =>
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-const renderInline = (value: string) =>
-  escapeHtml(value).replace(/\[\[([^\]]+)\]\]/g, (_raw, text: string) => `<a href=\"/\">${escapeHtml(text)}</a>`);
+type MarkdownOptions = {
+  resolveWikiLink?: (title: string) => { href: string; status?: "resolved" | "ambiguous" | "unresolved" };
+};
+
+const renderInline = (value: string, options?: MarkdownOptions) =>
+  escapeHtml(value).replace(/\[\[([^\]]+)\]\]/g, (_raw, text: string) => {
+    const clean = text.trim();
+    const resolved = options?.resolveWikiLink?.(clean);
+    const href = resolved?.href ?? "/";
+    const status = resolved?.status ? ` data-link-status=\"${resolved.status}\"` : "";
+
+    return `<a href=\"${escapeHtml(href)}\"${status}>${escapeHtml(clean)}</a>`;
+  });
 
 const renderCodeBlock = (code: string, language: string) => {
   const safeCode = escapeHtml(code);
@@ -46,7 +57,7 @@ const renderCodeBlock = (code: string, language: string) => {
   ].join("");
 };
 
-export const markdownLite = (body: string) => {
+export const markdownLite = (body: string, options?: MarkdownOptions) => {
   const lines = body.split("\n");
   const blocks: string[] = [];
   const listIndents: number[] = [];
@@ -137,7 +148,7 @@ export const markdownLite = (body: string) => {
     if (headingMatch) {
       closeAllLists();
       const level = headingMatch[1].length;
-      blocks.push(`<h${level}>${renderInline(headingMatch[2])}</h${level}>`);
+      blocks.push(`<h${level}>${renderInline(headingMatch[2], options)}</h${level}>`);
       continue;
     }
 
@@ -158,13 +169,13 @@ export const markdownLite = (body: string) => {
         blocks.push("</li>");
       }
 
-      blocks.push(`<li>${renderInline(listMatch[3])}`);
+      blocks.push(`<li>${renderInline(listMatch[3], options)}`);
       listItemOpen[depth] = true;
       continue;
     }
 
     closeAllLists();
-    blocks.push(`<p>${renderInline(line)}</p>`);
+    blocks.push(`<p>${renderInline(line, options)}</p>`);
   }
 
   if (inCodeBlock) {

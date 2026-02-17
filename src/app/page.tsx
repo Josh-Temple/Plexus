@@ -40,16 +40,15 @@ export default function HomePage() {
   const [newTitle, setNewTitle] = useState("");
   const [newBody, setNewBody] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const load = useCallback(
     async (search = query, nextFilter = filter, nextScope = searchScope) => {
       let q = supabase.from("notes").select("*").order("updated_at", { ascending: false }).limit(100);
       if (search) {
-        if (nextScope === "title") {
-          q = q.ilike("title", `%${search}%`);
-        } else {
-          q = q.or(`title.ilike.%${search}%,body.ilike.%${search}%`);
-        }
+        if (nextScope === "title") q = q.ilike("title", `%${search}%`);
+        else q = q.or(`title.ilike.%${search}%,body.ilike.%${search}%`);
       }
       if (nextFilter === "inbox") q = q.eq("inbox", true);
       if (nextFilter === "pinned") q = q.eq("pinned", true);
@@ -66,10 +65,7 @@ export default function HomePage() {
 
     const run = async () => {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        router.push("/auth");
-        return;
-      }
+      if (!data.session) return router.push("/auth");
       await load();
     };
     run();
@@ -132,14 +128,7 @@ export default function HomePage() {
 
       const { data, error } = await supabase
         .from("notes")
-        .insert({
-          title: newTitle || "Untitled",
-          body: newBody,
-          body_hash,
-          inbox: true,
-          pinned: false,
-          user_id: user.id,
-        })
+        .insert({ title: newTitle || "Untitled", body: newBody, body_hash, inbox: true, pinned: false, user_id: user.id })
         .select("id")
         .single();
 
@@ -213,13 +202,45 @@ export default function HomePage() {
     }
   };
 
-  if (!isSupabaseConfigured) {
-    return (
-      <SetupRequired
-        title="Plexus setup is incomplete"
-        description="Home requires a configured Supabase project before notes can be loaded."
-      />
+  const highlighted = (text: string) => {
+    if (!query) return text;
+    const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
+    return parts.map((part, index) =>
+      part.toLowerCase() === query.toLowerCase() ? (
+        <mark key={`${part}-${index}`} className="rounded bg-amber-300/30 px-0.5 text-slate-100">
+          {part}
+        </mark>
+      ) : (
+        <span key={`${part}-${index}`}>{part}</span>
+      )
     );
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  };
+
+  const applyBulk = async (action: "pin" | "inbox" | "delete") => {
+    if (!selectedIds.length) return;
+
+    let error: { message: string } | null = null;
+    if (action === "delete") ({ error } = await supabase.from("notes").delete().in("id", selectedIds));
+    if (action === "pin") ({ error } = await supabase.from("notes").update({ pinned: true }).in("id", selectedIds));
+    if (action === "inbox") ({ error } = await supabase.from("notes").update({ inbox: true }).in("id", selectedIds));
+
+    if (error) {
+      setToast(error.message);
+      return;
+    }
+
+    setSelectedIds([]);
+    setSelectionMode(false);
+    await load();
+    setToast(`Bulk action applied: ${action}`);
+  };
+
+  if (!isSupabaseConfigured) {
+    return <SetupRequired title="Plexus setup is incomplete" description="Home requires a configured Supabase project before notes can be loaded." />;
   }
 
   return (
@@ -231,47 +252,48 @@ export default function HomePage() {
           <h1 className="text-2xl font-semibold tracking-tight">Plexus</h1>
           <p className="text-xs text-muted">Clarity-first notes</p>
         </div>
-        <input
-          ref={importInputRef}
-          type="file"
-          accept=".md,.txt,text/markdown,text/plain"
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            importNotes(e.target.files);
-            e.currentTarget.value = "";
-          }}
-        />
-        <button className="btn-ghost" onClick={() => importInputRef.current?.click()}>
-          Import
-        </button>
+        <div className="flex items-center gap-2">
+          <button className={selectionMode ? "btn-primary" : "btn-ghost"} onClick={() => setSelectionMode((v) => !v)}>
+            Select
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".md,.txt,text/markdown,text/plain"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              importNotes(e.target.files);
+              e.currentTarget.value = "";
+            }}
+          />
+          <button className="btn-ghost" onClick={() => importInputRef.current?.click()}>
+            Import
+          </button>
+        </div>
       </header>
 
+      {selectionMode && (
+        <div className="surface flex items-center gap-2 p-2 text-xs">
+          <span>{selectedIds.length} selected</span>
+          <button className="btn-ghost px-2 py-1" onClick={() => applyBulk("pin")}>Pin</button>
+          <button className="btn-ghost px-2 py-1" onClick={() => applyBulk("inbox")}>Inbox</button>
+          <button className="rounded-lg px-2 py-1 text-red-300 hover:bg-red-500/10" onClick={() => applyBulk("delete")}>Delete</button>
+        </div>
+      )}
+
       <div className="surface p-3">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="input-base"
-          placeholder="Search notes"
-        />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} className="input-base" placeholder="Search notes" />
         <div className="mt-3 flex gap-2">
           {FILTER_OPTIONS.map((option) => (
-            <button
-              key={option.key}
-              className={filter === option.key ? "btn-primary" : "btn-ghost"}
-              onClick={() => setFilter(option.key)}
-            >
+            <button key={option.key} className={filter === option.key ? "btn-primary" : "btn-ghost"} onClick={() => setFilter(option.key)}>
               {option.label}
             </button>
           ))}
         </div>
         <div className="mt-2 flex gap-2">
           {SEARCH_SCOPE_OPTIONS.map((scope) => (
-            <button
-              key={scope.key}
-              className={searchScope === scope.key ? "btn-primary" : "btn-ghost"}
-              onClick={() => setSearchScope(scope.key)}
-            >
+            <button key={scope.key} className={searchScope === scope.key ? "btn-primary" : "btn-ghost"} onClick={() => setSearchScope(scope.key)}>
               {scope.label}
             </button>
           ))}
@@ -281,77 +303,60 @@ export default function HomePage() {
       <ul className="space-y-2">
         {notes.map((note) => (
           <li key={note.id} className="surface p-3">
-            <Link href={`/note/${note.id}`} className="block text-base font-medium">
-              {note.title || "Untitled"}
-            </Link>
-            <p className="mt-1 line-clamp-2 text-sm text-muted">{note.body}</p>
+            <div className="flex items-start justify-between gap-2">
+              <Link href={`/note/${note.id}`} className="block text-base font-medium">
+                {highlighted(note.title || "Untitled")}
+              </Link>
+              {selectionMode && (
+                <input type="checkbox" checked={selectedIds.includes(note.id)} onChange={() => toggleSelected(note.id)} />
+              )}
+            </div>
+            <p className="mt-1 line-clamp-2 text-sm text-muted">{highlighted(note.body)}</p>
             <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
               <span className="rounded-full border border-white/10 px-2 py-1">{formatUpdatedAt(note.updated_at)}</span>
               {note.inbox && <span className="rounded-full border border-cyan-300/30 px-2 py-1 text-cyan-200">Inbox</span>}
-              {note.pinned && (
-                <span className="rounded-full border border-amber-300/30 px-2 py-1 text-amber-200">Pinned</span>
-              )}
-              <span className="rounded-full border border-white/10 px-2 py-1">
-                {extractWikiLinks(note.body).length} wiki link(s)
-              </span>
+              {note.pinned && <span className="rounded-full border border-amber-300/30 px-2 py-1 text-amber-200">Pinned</span>}
+              <span className="rounded-full border border-white/10 px-2 py-1">{extractWikiLinks(note.body).length} wiki link(s)</span>
             </div>
-            <div className="mt-3 flex gap-2 text-xs">
-              <button className="btn-ghost" onClick={() => toggleFlag(note.id, { inbox: !note.inbox })}>
-                {note.inbox ? "Remove inbox" : "Move to inbox"}
-              </button>
-              <button className="btn-ghost" onClick={() => toggleFlag(note.id, { pinned: !note.pinned })}>
-                {note.pinned ? "Unpin" : "Pin"}
-              </button>
-              <button className="rounded-xl px-3 py-2 text-red-300 hover:bg-red-500/10" onClick={() => removeNote(note.id)}>
-                Delete
-              </button>
-            </div>
+            {!selectionMode && (
+              <div className="mt-3 flex gap-2 text-xs">
+                <button className="btn-ghost" onClick={() => toggleFlag(note.id, { inbox: !note.inbox })}>{note.inbox ? "Remove inbox" : "Move to inbox"}</button>
+                <button className="btn-ghost" onClick={() => toggleFlag(note.id, { pinned: !note.pinned })}>{note.pinned ? "Unpin" : "Pin"}</button>
+                <button className="rounded-xl px-3 py-2 text-red-300 hover:bg-red-500/10" onClick={() => removeNote(note.id)}>Delete</button>
+              </div>
+            )}
           </li>
         ))}
       </ul>
 
-      <button
-        className="fixed bottom-5 right-5 h-12 w-12 rounded-full border border-white/20 bg-panel text-2xl text-slate-100"
-        onClick={() => setOpenCreate(true)}
-        aria-label="Create note"
-      >
-        +
+      <button className="fixed bottom-5 right-5 h-12 w-12 rounded-full border border-white/20 bg-panel text-2xl text-slate-100" onClick={() => setOpenCreate(true)} aria-label="Create note">+
       </button>
 
       <BottomSheet open={openCreate} onClose={resetCreateForm} title="Quick note">
         <div className="space-y-3">
-          <input
-            className="input-base"
-            placeholder="Title"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-          />
+          <input className="input-base" placeholder="Title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
           <textarea
             ref={createBodyRef}
             className="input-base min-h-28"
             placeholder="Write your note"
             value={newBody}
             onChange={(e) => setNewBody(e.target.value)}
-            onKeyDown={(event) => {
+            onKeyDown={(event) =>
               handleBulletListKeyDown({
                 event,
                 value: newBody,
                 setValue: setNewBody,
                 textareaRef: createBodyRef,
-              });
-            }}
+              })
+            }
           />
-          <button onClick={createNote} className="btn-primary w-full">
-            Create note
-          </button>
+          <button onClick={createNote} className="btn-primary w-full">Create note</button>
           {similarCandidates.length > 0 && (
             <div>
               <p className="mb-1 text-xs uppercase tracking-wide text-muted">Similar notes</p>
               <ul className="space-y-1 text-sm">
                 {similarCandidates.map((item) => (
-                  <li key={item.id} className="rounded-lg border border-white/10 px-2 py-1">
-                    {item.title || "Untitled"}
-                  </li>
+                  <li key={item.id} className="rounded-lg border border-white/10 px-2 py-1">{item.title || "Untitled"}</li>
                 ))}
               </ul>
             </div>

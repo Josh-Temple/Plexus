@@ -350,3 +350,30 @@ npm run typecheck
 
 ## 実施メモ
 - 詳細な実行順・受け入れ条件・チェックリストは `STEP.md` に分離して管理する。
+
+---
+
+## Session Update (2026-02-17)
+- STEPの残タスク（Phase 2-5）を実装ベースで完了。
+- HomeにSelection mode + bulk actions（Pin/Inbox/Delete）と検索ハイライトを追加。
+- Noteにwikiリンク解決ステータス（resolved/ambiguous/unresolved）を導入し、ConnectionsにAmbiguous/Unresolvedセクションを追加。
+- Unresolved linksからノートを即作成できるQuick Createを追加。
+- Preview内wikiリンクをノート詳細にルーティングし、曖昧/未解決リンクは通知する挙動に変更。
+- Autosaveステータス表示（Saving/Saved/Error）を追加し、Suggested linksにInsert操作を追加。
+- Relatedスコアをtitle重み付きに調整。
+- AuthにOTP sent-state UX（Resend cooldown / Edit email）を追加。
+- README/STEPを更新し、今回リリース内容を反映。
+
+### Session Verification
+- `npm run lint`: pass
+- `npm run typecheck`: pass
+- Playwright screenshot: `browser:/tmp/codex_browser_invocations/6cd896be42c0f767/artifacts/artifacts/auth-otp-state.png`
+
+### Remaining Manual Checks
+- `.env.local` を実運用値で設定したうえで、Auth -> Home -> Create -> Edit -> Link -> Connections のE2E目視確認。
+
+## Session Update (2026-02-17 recheck)
+- ブランチ再点検を実施し、`npm run typecheck` で `NoteEditor` の `router.push` 型不一致を修正。
+- `Home` の bulk action にエラーハンドリングを追加（失敗時にToast表示して状態を維持）。
+- `Note` の link集計をユニーク化し、Ambiguous/Unresolved セクションに空状態メッセージを追加。
+- `onSyncLinks` の未ログイン時に toast 表示されないケースを修正。

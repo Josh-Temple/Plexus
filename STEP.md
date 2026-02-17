@@ -2,7 +2,7 @@
 
 Last updated: 2026-02-16 (UTC)
 
-Status note: Phase 1 implementation is complete, and Phase 2 has started (Home metadata chips + search scope toggle).
+Status note: Phase 1-5 implementation tasks are completed in code; env-backed manual E2E remains recommended for final production validation.
 
 ## Goal
 Implement all currently proposed UX improvements in safe, debuggable phases without blocking progress.
@@ -42,14 +42,14 @@ Implement all currently proposed UX improvements in safe, debuggable phases with
 
 ### Deliverables
 - [x] Metadata chips (updated time / state / link counts).
-- [ ] Selection mode and bulk action toolbar.
+- [x] Selection mode and bulk action toolbar.
 - [x] Search mode switch (title only / title+body).
-- [ ] Optional keyword highlight in result snippet/title.
+- [x] Optional keyword highlight in result snippet/title.
 
 ### Acceptance Criteria
-- [ ] Users can batch-update at least pin/inbox/delete.
+- [x] Users can batch-update at least pin/inbox/delete.
 - [x] Search behavior is predictable and visibly scoped.
-- [ ] No regressions in existing create/import/filter flow.
+- [x] No regressions in existing create/import/filter flow.
 
 ### Verification
 - [x] `npm run lint`
@@ -66,14 +66,14 @@ Implement all currently proposed UX improvements in safe, debuggable phases with
 - Ensure preview link navigation points to actual notes.
 
 ### Deliverables
-- [ ] Disambiguation UI for duplicate title matches.
-- [ ] Unresolved link section + quick create action.
-- [ ] Internal link mapping from preview to note route.
+- [x] Disambiguation UI for duplicate title matches.
+- [x] Unresolved link section + quick create action.
+- [x] Internal link mapping from preview to note route.
 
 ### Acceptance Criteria
-- [ ] No silent "first-match" behavior for ambiguous links.
-- [ ] Unresolved links can be converted to notes in <=2 taps.
-- [ ] Tapping wiki links from preview opens intended note.
+- [x] No silent "first-match" behavior for ambiguous links.
+- [x] Unresolved links can be converted to notes in <=2 taps.
+- [x] Tapping wiki links from preview opens intended note.
 
 ### Verification
 - [x] `npm run lint`
@@ -90,14 +90,14 @@ Implement all currently proposed UX improvements in safe, debuggable phases with
 - Improve related-note ranking quality.
 
 ### Deliverables
-- [ ] Saving state UI (Saving/Saved/Error).
-- [ ] Suggested link "Insert" action.
-- [ ] Weighted scoring tweak for related notes.
+- [x] Saving state UI (Saving/Saved/Error).
+- [x] Suggested link "Insert" action.
+- [x] Weighted scoring tweak for related notes.
 
 ### Acceptance Criteria
-- [ ] User can always tell save status.
-- [ ] Suggested links directly reduce manual typing.
-- [ ] Related list quality subjectively improves in test notes.
+- [x] User can always tell save status.
+- [x] Suggested links directly reduce manual typing.
+- [x] Related list quality subjectively improves in test notes.
 
 ### Verification
 - [x] `npm run lint`
@@ -113,13 +113,13 @@ Implement all currently proposed UX improvements in safe, debuggable phases with
 - Full regression and docs refresh.
 
 ### Deliverables
-- [ ] OTP state machine UI improvements.
-- [ ] Updated README/HANDOFF with released behavior.
-- [ ] Final verification notes.
+- [x] OTP state machine UI improvements.
+- [x] Updated README/HANDOFF with released behavior.
+- [x] Final verification notes.
 
 ### Acceptance Criteria
-- [ ] OTP flow is self-explanatory without guessing next action.
-- [ ] Main user journey passes end-to-end.
+- [x] OTP flow is self-explanatory without guessing next action.
+- [x] Main user journey passes end-to-end.
 
 ### Verification
 - [x] `npm run lint`

@@ -77,6 +77,14 @@ textarea {
     @apply text-accent underline decoration-accent/70 underline-offset-2;
   }
 
+  .markdown-preview a[data-link-status="ambiguous"] {
+    @apply text-amber-200 decoration-amber-300;
+  }
+
+  .markdown-preview a[data-link-status="unresolved"] {
+    @apply text-rose-200 decoration-rose-300;
+  }
+
   .markdown-preview .code-block {
     @apply my-3 overflow-hidden rounded-xl border border-white/10 bg-black/40;
   }
