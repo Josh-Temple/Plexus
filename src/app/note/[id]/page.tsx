@@ -195,14 +195,14 @@ export default function NotePage() {
   if (!note) return <div className="p-4 text-sm text-muted">Loading…</div>;
 
   return (
-    <div className="p-4">
+    <div className="p-4 pb-24">
       <Toast message={toast} />
       <div className="mb-3 flex items-center justify-between">
         <Link href="/" className="text-sm text-muted">
           ← Home
         </Link>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted">{saveState === "saving" ? "Saving..." : saveState === "error" ? "Save failed" : "Saved"}</span>
+          <span className="inline-flex items-center gap-2 text-xs text-muted"><span className={`h-2 w-2 rounded-full ${saveState === "saving" ? "bg-amber-300" : saveState === "error" ? "bg-rose-400" : "bg-emerald-300"}`} />{saveState === "saving" ? "Saving..." : saveState === "error" ? "Save failed" : "Saved"}</span>
           <button className="btn-ghost" onClick={() => setOpenSheet(true)}>
             Connections
           </button>

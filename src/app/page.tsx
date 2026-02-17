@@ -244,71 +244,84 @@ export default function HomePage() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col gap-4 p-4 pb-24">
+    <div className="relative flex min-h-screen flex-col bg-bg pb-40">
       <Toast message={toast} />
 
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Plexus</h1>
-          <p className="text-xs text-muted">Clarity-first notes</p>
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-bg/95 p-4 backdrop-blur">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Plexus</h1>
+            <p className="text-xs text-muted">Clarity-first notes</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className={selectionMode ? "btn-primary" : "btn-ghost"} onClick={() => setSelectionMode((v) => !v)}>
+              {selectionMode ? "Cancel" : "Select"}
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".md,.txt,text/markdown,text/plain"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                importNotes(e.target.files);
+                e.currentTarget.value = "";
+              }}
+            />
+            <button className="btn-ghost" onClick={() => importInputRef.current?.click()}>
+              Import
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button className={selectionMode ? "btn-primary" : "btn-ghost"} onClick={() => setSelectionMode((v) => !v)}>
-            Select
-          </button>
-          <input
-            ref={importInputRef}
-            type="file"
-            accept=".md,.txt,text/markdown,text/plain"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              importNotes(e.target.files);
-              e.currentTarget.value = "";
-            }}
-          />
-          <button className="btn-ghost" onClick={() => importInputRef.current?.click()}>
-            Import
-          </button>
+
+        <div className="mt-3">
+          <input value={query} onChange={(e) => setQuery(e.target.value)} className="input-base" placeholder="Search notes" />
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {FILTER_OPTIONS.map((option) => (
+              <button
+                key={option.key}
+                className={filter === option.key ? "btn-primary whitespace-nowrap" : "btn-ghost whitespace-nowrap"}
+                onClick={() => setFilter(option.key)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+            {SEARCH_SCOPE_OPTIONS.map((scope) => (
+              <button
+                key={scope.key}
+                className={searchScope === scope.key ? "btn-primary whitespace-nowrap" : "btn-ghost whitespace-nowrap"}
+                onClick={() => setSearchScope(scope.key)}
+              >
+                {scope.label}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
-      {selectionMode && (
-        <div className="surface flex items-center gap-2 p-2 text-xs">
-          <span>{selectedIds.length} selected</span>
-          <button className="btn-ghost px-2 py-1" onClick={() => applyBulk("pin")}>Pin</button>
-          <button className="btn-ghost px-2 py-1" onClick={() => applyBulk("inbox")}>Inbox</button>
-          <button className="rounded-lg px-2 py-1 text-red-300 hover:bg-red-500/10" onClick={() => applyBulk("delete")}>Delete</button>
-        </div>
-      )}
-
-      <div className="surface p-3">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} className="input-base" placeholder="Search notes" />
-        <div className="mt-3 flex gap-2">
-          {FILTER_OPTIONS.map((option) => (
-            <button key={option.key} className={filter === option.key ? "btn-primary" : "btn-ghost"} onClick={() => setFilter(option.key)}>
-              {option.label}
-            </button>
-          ))}
-        </div>
-        <div className="mt-2 flex gap-2">
-          {SEARCH_SCOPE_OPTIONS.map((scope) => (
-            <button key={scope.key} className={searchScope === scope.key ? "btn-primary" : "btn-ghost"} onClick={() => setSearchScope(scope.key)}>
-              {scope.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <ul className="space-y-2">
+      <main className="space-y-2 p-4">
         {notes.map((note) => (
-          <li key={note.id} className="surface p-3">
+          <article key={note.id} className="surface p-3">
             <div className="flex items-start justify-between gap-2">
               <Link href={`/note/${note.id}`} className="block text-base font-medium">
                 {highlighted(note.title || "Untitled")}
               </Link>
-              {selectionMode && (
-                <input type="checkbox" checked={selectedIds.includes(note.id)} onChange={() => toggleSelected(note.id)} />
+              {selectionMode ? (
+                <input type="checkbox" checked={selectedIds.includes(note.id)} onChange={() => toggleSelected(note.id)} aria-label="Select note" />
+              ) : (
+                <div className="flex items-center gap-1">
+                  <button className="btn-ghost px-2 py-1 text-xs" onClick={() => toggleFlag(note.id, { inbox: !note.inbox })}>
+                    {note.inbox ? "Outbox" : "Inbox"}
+                  </button>
+                  <button className="btn-ghost px-2 py-1 text-xs" onClick={() => toggleFlag(note.id, { pinned: !note.pinned })}>
+                    {note.pinned ? "Unpin" : "Pin"}
+                  </button>
+                  <button className="rounded-lg px-2 py-1 text-xs text-red-300 hover:bg-red-500/10" onClick={() => removeNote(note.id)}>
+                    Delete
+                  </button>
+                </div>
               )}
             </div>
             <p className="mt-1 line-clamp-2 text-sm text-muted">{highlighted(note.body)}</p>
@@ -318,19 +331,28 @@ export default function HomePage() {
               {note.pinned && <span className="rounded-full border border-amber-300/30 px-2 py-1 text-amber-200">Pinned</span>}
               <span className="rounded-full border border-white/10 px-2 py-1">{extractWikiLinks(note.body).length} wiki link(s)</span>
             </div>
-            {!selectionMode && (
-              <div className="mt-3 flex gap-2 text-xs">
-                <button className="btn-ghost" onClick={() => toggleFlag(note.id, { inbox: !note.inbox })}>{note.inbox ? "Remove inbox" : "Move to inbox"}</button>
-                <button className="btn-ghost" onClick={() => toggleFlag(note.id, { pinned: !note.pinned })}>{note.pinned ? "Unpin" : "Pin"}</button>
-                <button className="rounded-xl px-3 py-2 text-red-300 hover:bg-red-500/10" onClick={() => removeNote(note.id)}>Delete</button>
-              </div>
-            )}
-          </li>
+          </article>
         ))}
-      </ul>
+      </main>
 
-      <button className="fixed bottom-5 right-5 h-12 w-12 rounded-full border border-white/20 bg-panel text-2xl text-slate-100" onClick={() => setOpenCreate(true)} aria-label="Create note">+
-      </button>
+      {selectionMode ? (
+        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/10 bg-bg/95 p-3 pb-5 backdrop-blur">
+          <div className="mx-auto flex max-w-xl items-center gap-2">
+            <span className="min-w-20 text-xs text-muted">{selectedIds.length} selected</span>
+            <button className="btn-ghost text-sm" onClick={() => applyBulk("pin")}>Pin</button>
+            <button className="btn-ghost text-sm" onClick={() => applyBulk("inbox")}>Inbox</button>
+            <button className="rounded-xl px-3 py-2 text-sm text-red-300 hover:bg-red-500/10" onClick={() => applyBulk("delete")}>Delete</button>
+          </div>
+        </div>
+      ) : (
+        <button
+          className="fixed bottom-5 right-5 z-30 h-14 w-14 rounded-full border border-white/20 bg-accent text-3xl leading-none text-black shadow-lg shadow-black/30"
+          onClick={() => setOpenCreate(true)}
+          aria-label="Create note"
+        >
+          +
+        </button>
+      )}
 
       <BottomSheet open={openCreate} onClose={resetCreateForm} title="Quick note">
         <div className="space-y-3">
