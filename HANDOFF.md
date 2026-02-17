@@ -18,6 +18,10 @@
 
 # 2. ここまでにやったこと（箇条書き、重要なコミット/PRがあればID）
 
+- 2026-02-16 本セッションで **Phase 2 (Home Discoverability)** の一部を実施（メタデータチップ + 検索対象トグル）。
+- `src/app/page.tsx` に検索対象トグル（Title / Title + Body）を追加し、クエリ対象カラムを切り替え可能にした。
+- `src/app/page.tsx` のノートカードにメタデータチップ（更新相対時刻 / Inbox / Pinned / Wikiリンク数）を追加した。
+- PlaywrightでHome画面の更新後スクリーンショットを取得（`artifacts/home-phase2.png`）。
 - 2026-02-16 本セッションで **Phase 1 (Stability & Onboarding)** の着手を実施。
 - `src/lib/supabaseClient.ts` に envガード（不足キー検出 + `isSupabaseConfigured`）を追加し、未設定時の起動クラッシュを回避。
 - `src/components/SetupRequired.tsx` を新規追加し、不足している `.env.local` キー名を画面表示するガイドUIを導入。
@@ -47,6 +51,11 @@
 ---
 
 # 3. 変更した主要ファイル（パス + 変更概要 + 影響範囲）
+
+0. `src/app/page.tsx`
+   - Homeの検索対象を`title`限定/`title+body`で切替可能に変更。
+   - ノートカードに「更新時刻 / 状態 / wikiリンク数」のメタデータチップを追加。
+   - 影響範囲: Homeの探索性、検索体験、一覧カード情報量。
 
 1. `src/lib/noteUtils.ts`
    - Markdownのコードフェンス（```lang ... ```）をPreviewでHTML化し、ヘッダーに言語表示＋Copyボタンを出すように拡張。
@@ -165,6 +174,8 @@
 # 6. テスト状況（実行したテスト、結果、未実施のテスト）
 
 ## 実行済み
+- `npm run lint` -> 成功（Phase 2: Home metadata/search scope対応後）
+- `npm run typecheck` -> 成功（Phase 2: Home metadata/search scope対応後）
 - `npm run lint` -> 成功（コードブロックPreview/Copy対応後）
 - `npm run typecheck` -> 成功（コードブロックPreview/Copy対応後）
 - `npm run lint` -> 成功（NoteEditorのUI変更後）
@@ -209,12 +220,13 @@
      3. 1件ずつIssue化または修正コミット化。
 
 ## P3
-4. **UI変更後の回帰確認（最低限）**
+4. **UI変更後の回帰確認（Home含む最低限）**
    - 手順:
      1. Auth画面表示。
      2. Home検索/フィルタ。
-     3. Note edit/preview。
-     4. BottomSheet開閉、SuggestBar表示。
+     3. Homeの検索対象トグル（Title / Title + Body）で結果差分を確認。
+     4. Note edit/preview。
+     5. BottomSheet開閉、SuggestBar表示。
 
 ---
 

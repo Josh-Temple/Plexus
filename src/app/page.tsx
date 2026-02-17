@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import { SetupRequired } from "@/components/SetupRequired";
 import { handleBulletListKeyDown } from "@/lib/bulletListEditor";
-import { cheapHash } from "@/lib/noteUtils";
+import { cheapHash, extractWikiLinks } from "@/lib/noteUtils";
 import { BottomSheet } from "@/components/BottomSheet";
 import { Toast } from "@/components/Toast";
 import { Note } from "@/types/db";
@@ -19,6 +19,13 @@ const FILTER_OPTIONS = [
 
 type FilterType = (typeof FILTER_OPTIONS)[number]["key"];
 
+const SEARCH_SCOPE_OPTIONS = [
+  { key: "title", label: "Title" },
+  { key: "title_body", label: "Title + Body" },
+] as const;
+
+type SearchScope = (typeof SEARCH_SCOPE_OPTIONS)[number]["key"];
+
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : "Something went wrong.");
 
 export default function HomePage() {
@@ -27,6 +34,7 @@ export default function HomePage() {
   const createBodyRef = useRef<HTMLTextAreaElement | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState("");
+  const [searchScope, setSearchScope] = useState<SearchScope>("title_body");
   const [filter, setFilter] = useState<FilterType>("all");
   const [openCreate, setOpenCreate] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -34,9 +42,15 @@ export default function HomePage() {
   const [toast, setToast] = useState<string | null>(null);
 
   const load = useCallback(
-    async (search = query, nextFilter = filter) => {
+    async (search = query, nextFilter = filter, nextScope = searchScope) => {
       let q = supabase.from("notes").select("*").order("updated_at", { ascending: false }).limit(100);
-      if (search) q = q.or(`title.ilike.%${search}%,body.ilike.%${search}%`);
+      if (search) {
+        if (nextScope === "title") {
+          q = q.ilike("title", `%${search}%`);
+        } else {
+          q = q.or(`title.ilike.%${search}%,body.ilike.%${search}%`);
+        }
+      }
       if (nextFilter === "inbox") q = q.eq("inbox", true);
       if (nextFilter === "pinned") q = q.eq("pinned", true);
 
@@ -44,7 +58,7 @@ export default function HomePage() {
       if (error) return setToast(error.message);
       setNotes((data as Note[]) ?? []);
     },
-    [filter, query]
+    [filter, query, searchScope]
   );
 
   useEffect(() => {
@@ -65,10 +79,27 @@ export default function HomePage() {
     if (!isSupabaseConfigured) return;
 
     const timer = setTimeout(() => {
-      load(query, filter);
+      load(query, filter, searchScope);
     }, 250);
     return () => clearTimeout(timer);
-  }, [filter, load, query]);
+  }, [filter, load, query, searchScope]);
+
+  const formatUpdatedAt = (updatedAt: string) => {
+    const date = new Date(updatedAt);
+    if (Number.isNaN(date.getTime())) return "Updated just now";
+
+    const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+    const diffMs = date.getTime() - Date.now();
+    const diffMinutes = Math.round(diffMs / (1000 * 60));
+
+    if (Math.abs(diffMinutes) < 60) return `Updated ${relative.format(diffMinutes, "minute")}`;
+
+    const diffHours = Math.round(diffMinutes / 60);
+    if (Math.abs(diffHours) < 24) return `Updated ${relative.format(diffHours, "hour")}`;
+
+    const diffDays = Math.round(diffHours / 24);
+    return `Updated ${relative.format(diffDays, "day")}`;
+  };
 
   const similarCandidates = useMemo(() => {
     const keyword = `${newTitle} ${newBody}`.trim().toLowerCase();
@@ -234,6 +265,17 @@ export default function HomePage() {
             </button>
           ))}
         </div>
+        <div className="mt-2 flex gap-2">
+          {SEARCH_SCOPE_OPTIONS.map((scope) => (
+            <button
+              key={scope.key}
+              className={searchScope === scope.key ? "btn-primary" : "btn-ghost"}
+              onClick={() => setSearchScope(scope.key)}
+            >
+              {scope.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <ul className="space-y-2">
@@ -243,6 +285,16 @@ export default function HomePage() {
               {note.title || "Untitled"}
             </Link>
             <p className="mt-1 line-clamp-2 text-sm text-muted">{note.body}</p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
+              <span className="rounded-full border border-white/10 px-2 py-1">{formatUpdatedAt(note.updated_at)}</span>
+              {note.inbox && <span className="rounded-full border border-cyan-300/30 px-2 py-1 text-cyan-200">Inbox</span>}
+              {note.pinned && (
+                <span className="rounded-full border border-amber-300/30 px-2 py-1 text-amber-200">Pinned</span>
+              )}
+              <span className="rounded-full border border-white/10 px-2 py-1">
+                {extractWikiLinks(note.body).length} wiki link(s)
+              </span>
+            </div>
             <div className="mt-3 flex gap-2 text-xs">
               <button className="btn-ghost" onClick={() => toggleFlag(note.id, { inbox: !note.inbox })}>
                 {note.inbox ? "Remove inbox" : "Move to inbox"}
