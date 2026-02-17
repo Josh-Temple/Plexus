@@ -2,7 +2,7 @@
 
 Last updated: 2026-02-16 (UTC)
 
-Status note: Phase 1 implementation landed in this session (env guard + setup screen for `/`, `/auth`, `/note/[id]`).
+Status note: Phase 1 implementation is complete, and Phase 2 has started (Home metadata chips + search scope toggle).
 
 ## Goal
 Implement all currently proposed UX improvements in safe, debuggable phases without blocking progress.
@@ -41,14 +41,14 @@ Implement all currently proposed UX improvements in safe, debuggable phases with
 - Improve search UX (target toggle + highlighting).
 
 ### Deliverables
-- [ ] Metadata chips (updated time / state / link counts).
+- [x] Metadata chips (updated time / state / link counts).
 - [ ] Selection mode and bulk action toolbar.
-- [ ] Search mode switch (title only / title+body).
+- [x] Search mode switch (title only / title+body).
 - [ ] Optional keyword highlight in result snippet/title.
 
 ### Acceptance Criteria
 - [ ] Users can batch-update at least pin/inbox/delete.
-- [ ] Search behavior is predictable and visibly scoped.
+- [x] Search behavior is predictable and visibly scoped.
 - [ ] No regressions in existing create/import/filter flow.
 
 ### Verification
