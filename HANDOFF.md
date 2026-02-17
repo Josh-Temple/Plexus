@@ -377,3 +377,15 @@ npm run typecheck
 - `Home` の bulk action にエラーハンドリングを追加（失敗時にToast表示して状態を維持）。
 - `Note` の link集計をユニーク化し、Ambiguous/Unresolved セクションに空状態メッセージを追加。
 - `onSyncLinks` の未ログイン時に toast 表示されないケースを修正。
+
+
+- 2026-02-17 本セッションで、Androidモバイルファースト改善を実装。
+- `src/app/page.tsx` を再レイアウトし、stickyヘッダー + 横スクロール可能なフィルタチップ + 下部固定の選択モード一括アクションバー + 強調FABに更新。
+- `src/components/NoteEditor.tsx` のモード切替を2択トグル（Preview/Edit）へ変更し、モバイル編集時の余白を調整。
+- `src/components/BottomSheet.tsx` にドラッグダウンで閉じる挙動（タッチ開始/終了差分）とハンドルUIを追加。
+- `src/components/SuggestBar.tsx` をリファクタリングし、表示位置オフセットを外部指定可能に拡張。
+- `src/app/note/[id]/page.tsx` の保存状態表示に色付きステータスドットを追加。
+- `src/app/globals.css` のボタン系スタイルを調整し、モバイルの最小タップ領域（44px）を確保。
+- 検証: `npm run lint` / `npm run typecheck` / `npm run build` を通過。
+- Playwrightでモバイル画面スクリーンショットを取得（`artifacts/mobile-home-redesign.png`）。
+

@@ -138,13 +138,24 @@ export function NoteEditor({
   };
 
   return (
-    <section className="flex h-full flex-col gap-3 pb-16">
+    <section className="flex h-full flex-col gap-3 pb-24">
       <div className="surface space-y-3 p-4 shadow-lg shadow-black/20">
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Note</p>
-          <button className="btn-ghost px-2 py-1 text-xs" onClick={() => setPreview((value) => !value)}>
-            {preview ? "Switch to Edit" : "Switch to Preview"}
-          </button>
+          <div className="inline-flex rounded-xl border border-white/10 bg-black/20 p-1 text-xs">
+            <button
+              className={preview ? "rounded-lg bg-white/10 px-3 py-1 text-slate-100" : "rounded-lg px-3 py-1 text-muted"}
+              onClick={() => setPreview(true)}
+            >
+              Preview
+            </button>
+            <button
+              className={!preview ? "rounded-lg bg-white/10 px-3 py-1 text-slate-100" : "rounded-lg px-3 py-1 text-muted"}
+              onClick={() => setPreview(false)}
+            >
+              Edit
+            </button>
+          </div>
         </div>
 
         {preview ? (
@@ -196,11 +207,11 @@ export function NoteEditor({
             }}
             onKeyDown={onEnterBullet}
             placeholder="Write your note"
-            className="input-base min-h-[55vh] border-white/20 bg-white/[0.03] p-3"
+            className="input-base min-h-[50vh] border-white/20 bg-white/[0.03] p-3"
           />
         )}
       </div>
-      <SuggestBar visible={showSuggest} suggestions={suggestions} onSelect={onPickSuggestion} />
+      <SuggestBar visible={showSuggest} suggestions={suggestions} onSelect={onPickSuggestion} bottomOffsetClassName="bottom-0 md:bottom-0" />
     </section>
   );
 }
