@@ -72,6 +72,12 @@ GITHUB_ALLOWED_REPOS=<owner1/repo1,owner2/repo2>
 - 保存ステータス表示（Saving/Saved/Error）
 - Auth OTP sent-state UX（Resend cooldown / Edit email）
 
+
+## Recent fixes (login + note creation)
+- Added an OTP callback page at `/auth/callback` to reliably exchange Supabase auth codes for a session and redirect users back to Home.
+- Updated the auth screen to send OTP links with `emailRedirectTo`, trim/lowercase email input, and prevent duplicate send clicks while requests are in flight.
+- Improved quick-note creation feedback on Home: create button now shows a loading state and redirects to `/auth` with a clear toast if the session has expired.
+
 ## セットアップ
 
 ### 1) 環境変数

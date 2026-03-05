@@ -42,6 +42,7 @@ export default function HomePage() {
   const [toast, setToast] = useState<string | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [creating, setCreating] = useState(false);
 
   const load = useCallback(
     async (search = query, nextFilter = filter, nextScope = searchScope) => {
@@ -113,6 +114,9 @@ export default function HomePage() {
   };
 
   const createNote = async () => {
+    if (creating) return;
+
+    setCreating(true);
     try {
       const {
         data: { user },
@@ -120,7 +124,11 @@ export default function HomePage() {
       } = await supabase.auth.getUser();
 
       if (userError) throw userError;
-      if (!user) throw new Error("You need to sign in.");
+      if (!user) {
+        setToast("Your session expired. Please sign in again.");
+        router.push("/auth");
+        return;
+      }
 
       const body_hash = await cheapHash(newBody);
       const exact = notes.find((note) => note.body_hash === body_hash);
@@ -138,6 +146,8 @@ export default function HomePage() {
       router.push(`/note/${data.id}`);
     } catch (error) {
       setToast(getErrorMessage(error));
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -380,7 +390,7 @@ export default function HomePage() {
               })
             }
           />
-          <button onClick={createNote} className="btn-primary w-full">Create note</button>
+          <button onClick={createNote} className="btn-primary w-full" disabled={creating}>{creating ? "Creating..." : "Create note"}</button>
           {similarCandidates.length > 0 && (
             <div>
               <p className="mb-1 text-xs uppercase tracking-wide text-muted">Similar notes</p>
