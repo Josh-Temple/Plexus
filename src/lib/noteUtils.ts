@@ -7,11 +7,29 @@ export const normalizeBody = (value: string) =>
 
 export const cheapHash = async (raw: string) => {
   const text = normalizeBody(raw);
-  const encoded = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", encoded);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  const subtle = globalThis.crypto?.subtle;
+
+  if (subtle) {
+    const encoded = new TextEncoder().encode(text);
+    const digest = await subtle.digest("SHA-256", encoded);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
+  let hashA = 0x811c9dc5;
+  let hashB = 0x01000193;
+  for (let i = 0; i < text.length; i += 1) {
+    const code = text.charCodeAt(i);
+    hashA ^= code;
+    hashA = Math.imul(hashA, 0x01000193);
+    hashB ^= code;
+    hashB = Math.imul(hashB, 0x27d4eb2d);
+  }
+
+  const normalizedA = (hashA >>> 0).toString(16).padStart(8, "0");
+  const normalizedB = (hashB >>> 0).toString(16).padStart(8, "0");
+  return `${normalizedA}${normalizedB}`;
 };
 
 export const extractWikiLinks = (body: string): string[] => {

@@ -466,3 +466,16 @@ npm run typecheck
 
 ### Notes for next session
 - If additional markdown features are added (e.g., ordered lists or blockquotes), extend the extracted helper layer instead of reintroducing nested functions inside `markdownLite`.
+
+## Session Update (2026-03-05, note creation reliability)
+- Investigated the "could not add note" issue around note creation.
+- Root cause: `cheapHash` relied solely on `crypto.subtle.digest`, which can be unavailable in some runtime/browser contexts, causing note create to fail before insert.
+- Fix: Added a safe fallback hash path in `src/lib/noteUtils.ts` when `crypto.subtle` is not present.
+- Result: Note creation/import flows no longer hard-fail in those environments; they still produce deterministic `body_hash` values.
+
+### Verification
+- `npm run lint`: pass
+- `npm run typecheck`: pass
+
+### Next-session notes
+- If you need cryptographic guarantees for all environments, consider moving hash generation server-side (or adding a tiny SHA-256 polyfill).
