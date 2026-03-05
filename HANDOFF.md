@@ -19,6 +19,24 @@
 # 2. ここまでにやったこと（箇条書き、重要なコミット/PRがあればID）
 
 
+## 2026-03-05 Session Update (Open issues review for GitHub App flow)
+- Reviewed README/HANDOFF and documented remaining risks after the GitHub App pivot.
+- Added a README section for follow-up items: API authorization, repository allowlist, audit/rate limiting, and clearer GitHub error UX.
+- No runtime behavior change; documentation-only clarification for next implementation cycle.
+
+## 2026-03-05 Session Update (GitHub App pivot)
+- Switched GitHub commit API auth flow from user-supplied PAT to server-side GitHub App authentication.
+- Updated `src/app/api/github/commit/route.ts` to mint app JWT, resolve repository installation, issue installation token, and commit via Contents API.
+- Removed token input from GitHub commit UI (`src/components/GitHubCommitPanel.tsx`) and note page wiring (`src/app/note/[id]/page.tsx`).
+- Updated `README.md` to document GitHub App flow and required environment variables (`GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`).
+
+## 2026-03-05 Session Update (GitHub Q&A clarification)
+- Reviewed README and existing GitHub integration implementation to answer product-direction questions.
+- Added a GitHub integration FAQ in `README.md` clarifying that current MVP uses PAT-based API calls, not GitHub App flow.
+- Documented recommended input fields (`owner/repo/branch/path`) and token scope expectations for current operation.
+- No runtime behavior change; documentation-only update.
+
+
 ## 2026-03-05 Session Update
 - No code behavior changes were made in this session; only documentation was updated.
 - Confirmed project direction: current architecture treats Supabase as source of truth for notes/links.

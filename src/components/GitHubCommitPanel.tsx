@@ -9,11 +9,9 @@ export type GitHubRepoConfig = {
 
 type Props = {
   config: GitHubRepoConfig;
-  token: string;
   commitMessage: string;
   isCommitting: boolean;
   onConfigChange: (key: keyof GitHubRepoConfig, value: string) => void;
-  onTokenChange: (value: string) => void;
   onCommitMessageChange: (value: string) => void;
   onCommit: () => void;
 };
@@ -22,11 +20,9 @@ const onInput = (handler: (value: string) => void) => (event: ChangeEvent<HTMLIn
 
 export function GitHubCommitPanel({
   config,
-  token,
   commitMessage,
   isCommitting,
   onConfigChange,
-  onTokenChange,
   onCommitMessageChange,
   onCommit,
 }: Props) {
@@ -60,19 +56,12 @@ export function GitHubCommitPanel({
         />
       </div>
       <input
-        value={token}
-        onChange={onInput((value) => onTokenChange(value.trim()))}
-        className="input-base mt-2"
-        placeholder="GitHub token (repo contents:write)"
-        type="password"
-      />
-      <input
         value={commitMessage}
         onChange={onInput(onCommitMessageChange)}
         className="input-base mt-2"
         placeholder="Commit message"
       />
-      <p className="mt-2 text-xs text-muted">Token is used only for this session and is not saved to localStorage.</p>
+      <p className="mt-2 text-xs text-muted">GitHub App authentication is handled server-side. No personal token input is required.</p>
       <div className="mt-3 flex justify-end">
         <button className="btn-primary" onClick={onCommit} disabled={isCommitting}>
           {isCommitting ? "Committing..." : "Commit current note"}
