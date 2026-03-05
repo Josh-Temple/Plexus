@@ -7,6 +7,7 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import { SetupRequired } from "@/components/SetupRequired";
 import { handleBulletListKeyDown } from "@/lib/bulletListEditor";
 import { cheapHash, extractWikiLinks } from "@/lib/noteUtils";
+import { getUserFriendlySupabaseError } from "@/lib/supabaseError";
 import { BottomSheet } from "@/components/BottomSheet";
 import { Toast } from "@/components/Toast";
 import { Note } from "@/types/db";
@@ -26,7 +27,7 @@ const SEARCH_SCOPE_OPTIONS = [
 
 type SearchScope = (typeof SEARCH_SCOPE_OPTIONS)[number]["key"];
 
-const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : "Something went wrong.");
+const getErrorMessage = (error: unknown) => getUserFriendlySupabaseError(error);
 
 export default function HomePage() {
   const router = useRouter();
@@ -55,7 +56,7 @@ export default function HomePage() {
       if (nextFilter === "pinned") q = q.eq("pinned", true);
 
       const { data, error } = await q;
-      if (error) return setToast(error.message);
+      if (error) return setToast(getErrorMessage(error));
       setNotes((data as Note[]) ?? []);
     },
     [filter, query, searchScope]
@@ -153,7 +154,7 @@ export default function HomePage() {
 
   const toggleFlag = async (id: string, patch: Partial<Pick<Note, "inbox" | "pinned">>) => {
     const { error } = await supabase.from("notes").update(patch).eq("id", id);
-    if (error) setToast(error.message);
+    if (error) setToast(getErrorMessage(error));
     await load();
   };
 
@@ -162,7 +163,7 @@ export default function HomePage() {
     if (!shouldDelete) return;
 
     const { error } = await supabase.from("notes").delete().eq("id", id);
-    if (error) setToast(error.message);
+    if (error) setToast(getErrorMessage(error));
     await load();
   };
 
@@ -247,7 +248,7 @@ export default function HomePage() {
     if (action === "inbox") ({ error } = await supabase.from("notes").update({ inbox: true }).in("id", selectedIds));
 
     if (error) {
-      setToast(error.message);
+      setToast(getErrorMessage(error));
       return;
     }
 

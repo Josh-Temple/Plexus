@@ -1,5 +1,8 @@
 # Plexus
 
+## Engineering convention
+- Keep all source code and in-code comments in English.
+
 Android/モバイルファーストの **Zettelkasten特化 Obsidian風 PKM** MVP です。
 
 ## データの正本（Source of Truth）
@@ -77,6 +80,10 @@ GITHUB_ALLOWED_REPOS=<owner1/repo1,owner2/repo2>
 - Added an OTP callback page at `/auth/callback` to reliably exchange Supabase auth codes for a session and redirect users back to Home.
 - Updated the auth screen to send OTP links with `emailRedirectTo`, trim/lowercase email input, and prevent duplicate send clicks while requests are in flight.
 - Improved quick-note creation feedback on Home: create button now shows a loading state and redirects to `/auth` with a clear toast if the session has expired.
+- Fixed a mobile interaction bug where tapping inside the Quick note sheet could trigger an unintended close; drag-to-close is now limited to the handle area only.
+- Added friendly error guidance for temporary Supabase outages (including paused projects), so users see a resume-and-retry hint instead of only a raw network error.
+
+
 
 ## セットアップ
 

@@ -10,6 +10,7 @@ import { Toast } from "@/components/Toast";
 import { extractWikiLinks, cheapHash } from "@/lib/noteUtils";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import { SetupRequired } from "@/components/SetupRequired";
+import { getUserFriendlySupabaseError } from "@/lib/supabaseError";
 import { Note } from "@/types/db";
 
 type LinkRow = { id: string; from_note_id: string; to_note_id: string; notes?: { title: string } | null };
@@ -24,7 +25,7 @@ const normalizeLinkRows = (rows: RawLinkRow[] | null | undefined): LinkRow[] =>
     notes: Array.isArray(row.notes) ? row.notes[0] ?? null : row.notes ?? null,
   }));
 
-const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : "Something went wrong.");
+const getErrorMessage = (error: unknown) => getUserFriendlySupabaseError(error);
 
 const getUniqueLinkTitles = (body: string) => [...new Set(extractWikiLinks(body))];
 
@@ -50,17 +51,23 @@ export default function NotePage() {
   });
 
   const load = useCallback(async () => {
-    const [{ data: single }, { data: notes }, { data: back }, { data: out }] = await Promise.all([
+    const [noteResult, notesResult, backlinksResult, outgoingResult] = await Promise.all([
       supabase.from("notes").select("*").eq("id", params.id).single(),
       supabase.from("notes").select("*").order("updated_at", { ascending: false }).limit(50),
       supabase.from("links").select("id,from_note_id,to_note_id,notes:from_note_id(title)").eq("to_note_id", params.id),
       supabase.from("links").select("id,from_note_id,to_note_id,notes:to_note_id(title)").eq("from_note_id", params.id),
     ]);
 
-    setNote(single as Note);
-    setAllNotes((notes as Note[]) ?? []);
-    setBacklinks(normalizeLinkRows(back as RawLinkRow[] | null));
-    setOutgoing(normalizeLinkRows(out as RawLinkRow[] | null));
+    const firstError = noteResult.error ?? notesResult.error ?? backlinksResult.error ?? outgoingResult.error;
+    if (firstError) {
+      setToast(getErrorMessage(firstError));
+      return;
+    }
+
+    setNote(noteResult.data as Note);
+    setAllNotes((notesResult.data as Note[]) ?? []);
+    setBacklinks(normalizeLinkRows(backlinksResult.data as RawLinkRow[] | null));
+    setOutgoing(normalizeLinkRows(outgoingResult.data as RawLinkRow[] | null));
   }, [params.id]);
 
   useEffect(() => {
@@ -76,7 +83,7 @@ export default function NotePage() {
       .eq("id", params.id);
 
     if (error) {
-      setToast(error.message);
+      setToast(getErrorMessage(error));
       throw error;
     }
   };
@@ -88,7 +95,7 @@ export default function NotePage() {
     } = await supabase.auth.getUser();
 
     if (userError) {
-      setToast(userError.message);
+      setToast(getErrorMessage(userError));
       throw userError;
     }
     if (!user) {
@@ -108,7 +115,7 @@ export default function NotePage() {
 
     const { data: existing, error } = await supabase.from("links").select("id,to_note_id").eq("from_note_id", params.id);
     if (error) {
-      setToast(error.message);
+      setToast(getErrorMessage(error));
       throw error;
     }
 
