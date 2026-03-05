@@ -2,6 +2,18 @@
 
 Android/モバイルファーストの **Zettelkasten特化 Obsidian風 PKM** MVP です。
 
+## データの正本（Source of Truth）
+- 現在の構成では **Supabase（`notes` / `links`）が正本** です。
+- GitHub連携を追加する場合は、まず「Supabaseを正本のまま、必要な内容をGitHubへコミットする片方向エクスポート」を推奨します。
+- この方針により、編集UX（オートセーブ・リンク解析）を維持しつつ、GitHubを履歴共有/外部連携先として使えます。
+
+
+## GitHub連携（MVP実装）
+- Note画面ヘッダーの **GitHub** ボタンから、`owner/repo/branch/path/token` を入力して現在ノートをコミットできます。
+- 実行時は `POST /api/github/commit` を通して GitHub Contents API (`PUT /repos/{owner}/{repo}/contents/{path}`) を呼び出します。
+- 初回はファイル作成、既存ファイルがある場合は `sha` を取得して更新コミットします。
+- **注意**: リファクタリング後のMVPでは `owner/repo/branch/path` のみを `localStorage` に保持し、`token` はセッション入力のみ（永続化しない）に変更しました。
+
 ## 実装済み（MVP）
 - Auth（Supabase OTPログイン）
 - Home（検索 + inbox/pinned/all フィルタ + 最近順一覧 + FAB + 選択モード一括操作 + 検索ハイライト）

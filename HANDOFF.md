@@ -18,6 +18,29 @@
 
 # 2. ここまでにやったこと（箇条書き、重要なコミット/PRがあればID）
 
+
+## 2026-03-05 Session Update
+- No code behavior changes were made in this session; only documentation was updated.
+- Confirmed project direction: current architecture treats Supabase as source of truth for notes/links.
+- Updated `README.md` with an explicit “Source of Truth” section and recommended GitHub export direction.
+- User follow-up to address next session: clarify owner tasks for enabling GitHub commit integration (token/app setup + repo permissions).
+
+## 2026-03-05 Session Update (GitHub refactor)
+- Refactored GitHub commit UI into a dedicated component: `src/components/GitHubCommitPanel.tsx`.
+- Reduced `src/app/note/[id]/page.tsx` complexity by delegating GitHub form rendering to the new component.
+- Improved token handling: GitHub token is no longer persisted in `localStorage`; only repo metadata is persisted.
+- Updated `README.md` to reflect the new token persistence behavior.
+- Validation run: `npm run lint` and `npm run typecheck`.
+
+## 2026-03-05 Session Update (GitHub integration)
+- Implemented a GitHub commit MVP for notes.
+- Added `src/app/api/github/commit/route.ts` to create/update files via GitHub Contents API.
+- Extended `src/app/note/[id]/page.tsx` with a GitHub panel (owner/repo/branch/path/token + commit message + commit action).
+- GitHub settings are persisted in browser `localStorage` (`plexus-github-config`) for convenience in MVP.
+- Fixed a duplicated `<Link>` line in the Ambiguous wiki links rendering block.
+- Updated `README.md` with GitHub integration usage and security caveat.
+- Next step recommendation: replace localStorage token usage with secure server-side storage or GitHub App flow.
+
 - 2026-02-16 本セッションで **Phase 2 (Home Discoverability)** の一部を実施（メタデータチップ + 検索対象トグル）。
 - `src/app/page.tsx` に検索対象トグル（Title / Title + Body）を追加し、クエリ対象カラムを切り替え可能にした。
 - `src/app/page.tsx` のノートカードにメタデータチップ（更新相対時刻 / Inbox / Pinned / Wikiリンク数）を追加した。
