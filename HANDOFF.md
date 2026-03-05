@@ -450,3 +450,19 @@ npm run typecheck
 2. Add user-level authorization before server-side commit/save endpoints are invoked.
 3. Add conflict handling strategy for concurrent updates (SHA mismatch retry policy).
 4. Add webhook endpoint for index/graph jobs once baseline save flow is stable.
+
+## Session Update (2026-03-05, refactor)
+- Refactored `markdownLite` internals in `src/lib/noteUtils.ts` to improve readability and maintainability without changing behavior.
+- Extracted nested helper logic into top-level reusable helpers:
+  - list state helpers (`closeListAtDepth`, `closeAllLists`, `ensureListDepth`)
+  - line normalization helper (`normalizeMarkdownLine`)
+  - indentation normalization helper (`normalizeIndent`)
+- Added local types (`ListState`, `NormalizedLine`) to make parsing state explicit.
+- Kept existing markdown features intact (headings, horizontal rules, code fences, wiki links, nested lists).
+
+### Verification
+- `npm run lint`: pass
+- `npm run typecheck`: pass
+
+### Notes for next session
+- If additional markdown features are added (e.g., ordered lists or blockquotes), extend the extracted helper layer instead of reintroducing nested functions inside `markdownLite`.

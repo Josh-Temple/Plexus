@@ -31,6 +31,16 @@ type MarkdownOptions = {
   resolveWikiLink?: (title: string) => { href: string; status?: "resolved" | "ambiguous" | "unresolved" };
 };
 
+type ListState = {
+  indents: number[];
+  itemOpen: boolean[];
+};
+
+type NormalizedLine = {
+  raw: string;
+  normalized: string;
+};
+
 const renderInline = (value: string, options?: MarkdownOptions) =>
   escapeHtml(value).replace(/\[\[([^\]]+)\]\]/g, (_raw, text: string) => {
     const clean = text.trim();
@@ -57,65 +67,70 @@ const renderCodeBlock = (code: string, language: string) => {
   ].join("");
 };
 
+const normalizeIndent = (indent: string) => {
+  const width = Array.from(indent).reduce((count, char) => {
+    if (char === "\t" || char === "\u3000") return count + 2;
+    if (char === " ") return count + 1;
+    return count;
+  }, 0);
+
+  return Math.floor(width / 2);
+};
+
+const normalizeMarkdownLine = (line: string): NormalizedLine => {
+  const trimmedStart = line.replace(/^[\s\u3000]+/u, "");
+  const normalized = trimmedStart.replace(/^＃+/u, (hashes) => "#".repeat(hashes.length));
+  return { raw: line, normalized };
+};
+
+const closeListAtDepth = (blocks: string[], listState: ListState, depth: number) => {
+  if (listState.itemOpen[depth]) {
+    blocks.push("</li>");
+    listState.itemOpen[depth] = false;
+  }
+
+  blocks.push("</ul>");
+  listState.indents.pop();
+  listState.itemOpen.pop();
+};
+
+const closeAllLists = (blocks: string[], listState: ListState) => {
+  while (listState.indents.length) {
+    closeListAtDepth(blocks, listState, listState.indents.length - 1);
+  }
+};
+
+const ensureListDepth = (blocks: string[], listState: ListState, indentLevel: number) => {
+  if (!listState.indents.length) {
+    blocks.push("<ul>");
+    listState.indents.push(indentLevel);
+    listState.itemOpen.push(false);
+    return;
+  }
+
+  while (listState.indents.length && indentLevel < listState.indents[listState.indents.length - 1]) {
+    closeListAtDepth(blocks, listState, listState.indents.length - 1);
+  }
+
+  if (!listState.indents.length || indentLevel > listState.indents[listState.indents.length - 1]) {
+    blocks.push("<ul>");
+    listState.indents.push(indentLevel);
+    listState.itemOpen.push(false);
+  }
+};
+
 export const markdownLite = (body: string, options?: MarkdownOptions) => {
   const lines = body.split("\n");
   const blocks: string[] = [];
-  const listIndents: number[] = [];
-  const listItemOpen: boolean[] = [];
+  const listState: ListState = { indents: [], itemOpen: [] };
   let inCodeBlock = false;
   let codeLanguage = "";
   let codeLines: string[] = [];
 
-  const normalizeIndent = (indent: string) => {
-    const width = Array.from(indent).reduce((count, char) => {
-      if (char === "\t" || char === "\u3000") return count + 2;
-      if (char === " ") return count + 1;
-      return count;
-    }, 0);
-
-    return Math.floor(width / 2);
-  };
-
-  const closeListAtDepth = (depth: number) => {
-    if (listItemOpen[depth]) {
-      blocks.push("</li>");
-      listItemOpen[depth] = false;
-    }
-
-    blocks.push("</ul>");
-    listIndents.pop();
-    listItemOpen.pop();
-  };
-
-  const closeAllLists = () => {
-    while (listIndents.length) {
-      closeListAtDepth(listIndents.length - 1);
-    }
-  };
-
-  const ensureListDepth = (indentLevel: number) => {
-    if (!listIndents.length) {
-      blocks.push("<ul>");
-      listIndents.push(indentLevel);
-      listItemOpen.push(false);
-      return;
-    }
-
-    while (listIndents.length && indentLevel < listIndents[listIndents.length - 1]) {
-      closeListAtDepth(listIndents.length - 1);
-    }
-
-    if (!listIndents.length || indentLevel > listIndents[listIndents.length - 1]) {
-      blocks.push("<ul>");
-      listIndents.push(indentLevel);
-      listItemOpen.push(false);
-    }
-  };
-
   for (const line of lines) {
     const codeFenceMatch = line.match(/^```([\w-]*)\s*$/u);
     if (codeFenceMatch) {
-      closeAllLists();
+      closeAllLists(blocks, listState);
 
       if (!inCodeBlock) {
         inCodeBlock = true;
@@ -136,52 +151,51 @@ export const markdownLite = (body: string, options?: MarkdownOptions) => {
       continue;
     }
 
-    const trimmedStart = line.replace(/^[\s\u3000]+/u, "");
-    const normalizedLine = trimmedStart.replace(/^＃+/u, (hashes) => "#".repeat(hashes.length));
+    const normalizedLine = normalizeMarkdownLine(line);
 
-    if (!normalizedLine.trim()) {
-      closeAllLists();
+    if (!normalizedLine.normalized.trim()) {
+      closeAllLists(blocks, listState);
       continue;
     }
 
-    const headingMatch = normalizedLine.match(/^(#{1,3})[ \u3000]*(.+)$/u);
+    const headingMatch = normalizedLine.normalized.match(/^(#{1,3})[ \u3000]*(.+)$/u);
     if (headingMatch) {
-      closeAllLists();
+      closeAllLists(blocks, listState);
       const level = headingMatch[1].length;
       blocks.push(`<h${level}>${renderInline(headingMatch[2], options)}</h${level}>`);
       continue;
     }
 
-    const horizontalRuleMatch = normalizedLine.match(/^-{3,}\s*$/u);
+    const horizontalRuleMatch = normalizedLine.normalized.match(/^-{3,}\s*$/u);
     if (horizontalRuleMatch) {
-      closeAllLists();
+      closeAllLists(blocks, listState);
       blocks.push("<hr />");
       continue;
     }
 
-    const listMatch = line.match(/^([\t \u3000]*)([-*+]|[・●])[ \u3000]+(.+)$/u);
+    const listMatch = normalizedLine.raw.match(/^([\t \u3000]*)([-*+]|[・●])[ \u3000]+(.+)$/u);
     if (listMatch) {
       const indentLevel = normalizeIndent(listMatch[1]);
-      ensureListDepth(indentLevel);
+      ensureListDepth(blocks, listState, indentLevel);
 
-      const depth = listIndents.length - 1;
-      if (listItemOpen[depth]) {
+      const depth = listState.indents.length - 1;
+      if (listState.itemOpen[depth]) {
         blocks.push("</li>");
       }
 
       blocks.push(`<li>${renderInline(listMatch[3], options)}`);
-      listItemOpen[depth] = true;
+      listState.itemOpen[depth] = true;
       continue;
     }
 
-    closeAllLists();
-    blocks.push(`<p>${renderInline(line, options)}</p>`);
+    closeAllLists(blocks, listState);
+    blocks.push(`<p>${renderInline(normalizedLine.raw, options)}</p>`);
   }
 
   if (inCodeBlock) {
     blocks.push(renderCodeBlock(codeLines.join("\n"), codeLanguage));
   }
 
-  closeAllLists();
+  closeAllLists(blocks, listState);
   return blocks.join("");
 };
