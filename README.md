@@ -77,6 +77,8 @@ GITHUB_ALLOWED_REPOS=<owner1/repo1,owner2/repo2>
 - Added an OTP callback page at `/auth/callback` to reliably exchange Supabase auth codes for a session and redirect users back to Home.
 - Updated the auth screen to send OTP links with `emailRedirectTo`, trim/lowercase email input, and prevent duplicate send clicks while requests are in flight.
 - Improved quick-note creation feedback on Home: create button now shows a loading state and redirects to `/auth` with a clear toast if the session has expired.
+- Fixed a mobile interaction bug where tapping inside the Quick note sheet could trigger an unintended close; drag-to-close is now limited to the handle area only.
+
 
 ## セットアップ
 

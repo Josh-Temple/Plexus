@@ -511,3 +511,10 @@ npm run typecheck
    - follow email magic link,
    - create note from Home quick-create sheet.
 3. If note creation still fails for specific users, inspect RLS policies for `public.notes` insert permissions against `auth.uid()`.
+
+## Latest session updates
+
+- Fixed: `Create note` sheet on Home could feel unresponsive because any touch-end inside the sheet could close it.
+  - Root cause: drag-close gesture listeners were attached to the whole sheet container, so normal taps in inputs/buttons could be interpreted as close gestures on some devices.
+  - Change: moved touch gesture handling to the top drag handle only and track distance via touch-move before closing.
+  - Verify: open Quick note -> tap title/body/create button repeatedly; sheet stays open unless backdrop tap/Close button/drag handle pull-down > 60px.
