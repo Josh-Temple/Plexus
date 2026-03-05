@@ -479,3 +479,35 @@ npm run typecheck
 
 ### Next-session notes
 - If you need cryptographic guarantees for all environments, consider moving hash generation server-side (or adding a tiny SHA-256 polyfill).
+
+---
+
+# 8. Session update (2026-03-05)
+
+## User-reported issues
+1. Could not add notes from the quick-create sheet (button appeared unresponsive).
+2. Could no longer log in via email OTP link.
+
+## Changes made
+1. Added `src/app/auth/callback/page.tsx` to complete Supabase OTP login by exchanging the `code` query parameter for a session, then redirecting to `/`.
+2. Updated `src/app/auth/page.tsx`:
+   - normalize email (`trim().toLowerCase()`),
+   - include `emailRedirectTo` for OTP,
+   - prevent duplicate submits with a `sending` state,
+   - improve user-facing messages.
+3. Updated `src/app/page.tsx` quick-create flow:
+   - add `creating` state to prevent double-submit,
+   - show button loading text,
+   - if session is missing, show a clear toast and redirect to `/auth` immediately.
+
+## Validation run
+- `npm run lint` -> pass
+- `npm run typecheck` -> pass
+
+## Next checks for handoff
+1. Verify Supabase dashboard Auth URL settings include your app URL and callback handling expectations.
+2. Manual E2E test with real Supabase project:
+   - sign in from `/auth`,
+   - follow email magic link,
+   - create note from Home quick-create sheet.
+3. If note creation still fails for specific users, inspect RLS policies for `public.notes` insert permissions against `auth.uid()`.

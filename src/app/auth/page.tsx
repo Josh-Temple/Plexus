@@ -11,6 +11,7 @@ export default function AuthPage() {
   const [msg, setMsg] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -19,15 +20,33 @@ export default function AuthPage() {
   }, [cooldown]);
 
   const signIn = async () => {
-    const { error } = await supabase.auth.signInWithOtp({ email });
+    if (sending) return;
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setMsg("Please enter your email address.");
+      return;
+    }
+
+    setSending(true);
+    setMsg("");
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: normalizedEmail,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    setSending(false);
     if (error) {
       setMsg(error.message);
       return;
     }
 
+    setEmail(normalizedEmail);
     setOtpSent(true);
     setCooldown(30);
-    setMsg("OTP link sent. Check your inbox and spam folder.");
+    setMsg("Sign-in link sent. Check your inbox and spam folder.");
   };
 
   const signOut = async () => {
@@ -59,7 +78,7 @@ export default function AuthPage() {
 
       {!otpSent ? (
         <button onClick={signIn} className="btn-primary" disabled={!email}>
-          Send OTP link
+          {sending ? "Sending..." : "Send sign-in link"}
         </button>
       ) : (
         <div className="surface space-y-2 p-3 text-sm">
@@ -68,7 +87,7 @@ export default function AuthPage() {
             <button className="btn-ghost" onClick={() => setOtpSent(false)}>
               Edit email
             </button>
-            <button className="btn-primary" onClick={signIn} disabled={cooldown > 0}>
+            <button className="btn-primary" onClick={signIn} disabled={cooldown > 0 || sending}>
               {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend link"}
             </button>
           </div>
