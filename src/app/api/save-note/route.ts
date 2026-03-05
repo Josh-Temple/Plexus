@@ -10,30 +10,58 @@ import {
   toBase64,
 } from "@/lib/githubApp";
 
-type CommitRequest = {
+type SaveNoteRequest = {
+  title?: string;
+  content?: string;
+  path?: string;
+  tags?: string[];
   owner?: string;
   repo?: string;
   branch?: string;
-  path?: string;
   message?: string;
-  content?: string;
 };
 
 const isBlank = (value?: string) => !value || !value.trim();
 
-export async function POST(request: Request) {
-  const body = (await request.json()) as CommitRequest;
+const toIsoDate = () => new Date().toISOString().slice(0, 10);
 
-  if ([body.owner, body.repo, body.branch, body.path, body.message, body.content].some((item) => isBlank(item))) {
-    return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
+const sanitizeTag = (tag: string) => tag.trim().replace(/[\n\r,]+/g, " ").replace(/\s+/g, " ");
+
+const normalizePath = (path: string) => path.trim().replace(/^\/+/, "");
+
+const isValidNotesPath = (path: string) => {
+  if (!path.endsWith(".md")) return false;
+  if (path.includes("..")) return false;
+  return path.startsWith("notes/");
+};
+
+const toMarkdown = ({ title, content, tags }: { title: string; content: string; tags: string[] }) => {
+  const escapedTitle = title.replace(/[\r\n]+/g, " ").trim() || "Untitled";
+  const cleanTags = tags.map(sanitizeTag).filter(Boolean);
+  const tagLine = cleanTags.length ? cleanTags.join(", ") : "";
+
+  return `---\ntitle: ${escapedTitle}\ntags: ${tagLine}\ncreated: ${toIsoDate()}\n---\n\n${content}`;
+};
+
+export async function POST(request: Request) {
+  const body = (await request.json()) as SaveNoteRequest;
+
+  if ([body.title, body.content, body.path].some((item) => isBlank(item))) {
+    return NextResponse.json({ error: "title, content and path are required." }, { status: 400 });
   }
 
-  const owner = body.owner!.trim();
-  const repo = body.repo!.trim();
-  const branch = body.branch!.trim();
-  const path = body.path!.trim();
-  const message = body.message!.trim();
-  const content = body.content!;
+  const owner = (body.owner ?? process.env.GITHUB_NOTES_OWNER ?? "").trim();
+  const repo = (body.repo ?? process.env.GITHUB_NOTES_REPO ?? "").trim();
+  const branch = (body.branch ?? process.env.GITHUB_NOTES_BRANCH ?? "main").trim();
+  const path = normalizePath(body.path!);
+
+  if ([owner, repo, branch].some((item) => isBlank(item))) {
+    return NextResponse.json({ error: "owner/repo/branch is missing. Pass them in request or server env." }, { status: 400 });
+  }
+
+  if (!isValidNotesPath(path)) {
+    return NextResponse.json({ error: "path must be inside notes/ and end with .md" }, { status: 400 });
+  }
 
   try {
     assertRepoAllowed(owner, repo, parseAllowList(process.env.GITHUB_ALLOWED_REPOS));
@@ -41,6 +69,14 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : "Repository is blocked by server policy.";
     return NextResponse.json({ error: message }, { status: 403 });
   }
+
+  const markdown = toMarkdown({
+    title: body.title!.trim(),
+    content: body.content!,
+    tags: Array.isArray(body.tags) ? body.tags : [],
+  });
+
+  const message = body.message?.trim() || `feat(note): save ${path.split("/").pop()?.replace(/\.md$/, "") || "note"}`;
 
   let token = "";
   try {
@@ -80,7 +116,7 @@ export async function POST(request: Request) {
     },
     body: JSON.stringify({
       message,
-      content: toBase64(content),
+      content: toBase64(markdown),
       branch,
       ...(sha ? { sha } : {}),
     }),
