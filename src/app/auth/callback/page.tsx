@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import { SetupRequired } from "@/components/SetupRequired";
+import { getUserFriendlySupabaseError } from "@/lib/supabaseError";
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [message, setMessage] = useState("Signing you in...");
@@ -27,7 +28,7 @@ export default function AuthCallbackPage() {
 
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (error) {
-        setMessage(`Could not complete sign-in: ${error.message}`);
+        setMessage(`Could not complete sign-in: ${getUserFriendlySupabaseError(error)}`);
         return;
       }
 
@@ -38,6 +39,14 @@ export default function AuthCallbackPage() {
     completeAuth();
   }, [router, searchParams]);
 
+  return (
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="surface max-w-md p-4 text-sm text-muted">{message}</div>
+    </div>
+  );
+}
+
+export default function AuthCallbackPage() {
   if (!isSupabaseConfigured) {
     return (
       <SetupRequired
@@ -48,8 +57,14 @@ export default function AuthCallbackPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="surface max-w-md p-4 text-sm text-muted">{message}</div>
-    </div>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center p-4">
+          <div className="surface max-w-md p-4 text-sm text-muted">Signing you in...</div>
+        </div>
+      }
+    >
+      <AuthCallbackContent />
+    </Suspense>
   );
 }

@@ -511,3 +511,16 @@ npm run typecheck
    - follow email magic link,
    - create note from Home quick-create sheet.
 3. If note creation still fails for specific users, inspect RLS policies for `public.notes` insert permissions against `auth.uid()`.
+
+## Latest session updates
+
+- Fixed: `Create note` sheet on Home could feel unresponsive because any touch-end inside the sheet could close it.
+  - Root cause: drag-close gesture listeners were attached to the whole sheet container, so normal taps in inputs/buttons could be interpreted as close gestures on some devices.
+  - Change: moved touch gesture handling to the top drag handle only and track distance via touch-move before closing.
+  - Verify: open Quick note -> tap title/body/create button repeatedly; sheet stays open unless backdrop tap/Close button/drag handle pull-down > 60px.
+
+- Added Supabase paused-project guidance in user-facing errors.
+  - New helper: `src/lib/supabaseError.ts` maps fetch/network/5xx-style failures to an actionable message: resume Supabase project and retry.
+  - Applied to Auth/Home/Note error surfaces so users can understand outages quickly.
+  - Note page load now checks query errors explicitly and shows toast instead of silently staying in loading state.
+  - Also fixed `/auth/callback` build-time error by wrapping `useSearchParams()` usage in a `Suspense` boundary (Next.js requirement), so `npm run build` passes again.
