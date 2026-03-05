@@ -1,5 +1,8 @@
 # Plexus
 
+## Engineering convention
+- Keep all source code and in-code comments in English.
+
 Android/モバイルファーストの **Zettelkasten特化 Obsidian風 PKM** MVP です。
 
 ## データの正本（Source of Truth）

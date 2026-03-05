@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import { SetupRequired } from "@/components/SetupRequired";
+import { getUserFriendlySupabaseError } from "@/lib/supabaseError";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -39,7 +40,7 @@ export default function AuthPage() {
 
     setSending(false);
     if (error) {
-      setMsg(error.message);
+      setMsg(getUserFriendlySupabaseError(error));
       return;
     }
 
