@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BottomSheet } from "@/components/BottomSheet";
 import { NoteEditor } from "@/components/NoteEditor";
+import { GitHubCommitPanel, GitHubRepoConfig } from "@/components/GitHubCommitPanel";
 import { Toast } from "@/components/Toast";
 import { extractWikiLinks, cheapHash } from "@/lib/noteUtils";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
@@ -14,6 +15,8 @@ import { Note } from "@/types/db";
 type LinkRow = { id: string; from_note_id: string; to_note_id: string; notes?: { title: string } | null };
 type RawLinkRow = Omit<LinkRow, "notes"> & { notes?: { title: string } | { title: string }[] | null };
 type SaveState = "saving" | "saved" | "error";
+
+type CommitState = "idle" | "committing";
 
 const normalizeLinkRows = (rows: RawLinkRow[] | null | undefined): LinkRow[] =>
   (rows ?? []).map((row) => ({
@@ -36,6 +39,16 @@ export default function NotePage() {
   const [toast, setToast] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [insertRequest, setInsertRequest] = useState<{ title: string; nonce: number } | null>(null);
+  const [showGitHubPanel, setShowGitHubPanel] = useState(false);
+  const [commitState, setCommitState] = useState<CommitState>("idle");
+  const [commitMessage, setCommitMessage] = useState("Update note from Plexus");
+  const [githubToken, setGithubToken] = useState("");
+  const [githubConfig, setGithubConfig] = useState<GitHubRepoConfig>({
+    owner: "",
+    repo: "",
+    branch: "main",
+    path: "",
+  });
 
   const load = useCallback(async () => {
     const [{ data: single }, { data: notes }, { data: back }, { data: out }] = await Promise.all([
@@ -183,6 +196,79 @@ export default function NotePage() {
     }
   };
 
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const stored = window.localStorage.getItem("plexus-github-config");
+    if (!stored) return;
+
+    try {
+      const parsed = JSON.parse(stored) as Partial<GitHubRepoConfig>;
+      setGithubConfig((current) => ({
+        owner: parsed.owner ?? current.owner,
+        repo: parsed.repo ?? current.repo,
+        branch: parsed.branch ?? current.branch,
+        path: parsed.path ?? current.path,
+      }));
+    } catch {
+      window.localStorage.removeItem("plexus-github-config");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("plexus-github-config", JSON.stringify(githubConfig));
+  }, [githubConfig]);
+
+  useEffect(() => {
+    if (!note) return;
+
+    setGithubConfig((current) => ({
+      ...current,
+      path: current.path || `notes/${note.id}.md`,
+    }));
+  }, [note]);
+
+  const onCommitToGitHub = async () => {
+    if (!note) return;
+
+    if (!githubToken || !githubConfig.owner || !githubConfig.repo || !githubConfig.branch || !githubConfig.path) {
+      setToast("Fill in all GitHub fields before committing.");
+      return;
+    }
+
+    setCommitState("committing");
+    try {
+      const payload = {
+        ...githubConfig,
+        token: githubToken,
+        message: commitMessage || `Update note ${note.id}`,
+        content: `# ${note.title || "Untitled note"}
+
+${note.body}`,
+      };
+
+      const response = await fetch("/api/github/commit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = (await response.json()) as { error?: string; commitSha?: string };
+      if (!response.ok) {
+        throw new Error(result.error || "GitHub commit failed.");
+      }
+
+      setToast(`Committed to GitHub (${(result.commitSha || "").slice(0, 7) || "ok"}).`);
+      setShowGitHubPanel(false);
+    } catch (error) {
+      setToast(getErrorMessage(error));
+    } finally {
+      setCommitState("idle");
+    }
+  };
+
   if (!isSupabaseConfigured) {
     return (
       <SetupRequired
@@ -203,11 +289,26 @@ export default function NotePage() {
         </Link>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-2 text-xs text-muted"><span className={`h-2 w-2 rounded-full ${saveState === "saving" ? "bg-amber-300" : saveState === "error" ? "bg-rose-400" : "bg-emerald-300"}`} />{saveState === "saving" ? "Saving..." : saveState === "error" ? "Save failed" : "Saved"}</span>
+          <button className="btn-ghost" onClick={() => setShowGitHubPanel((current) => !current)}>
+            GitHub
+          </button>
           <button className="btn-ghost" onClick={() => setOpenSheet(true)}>
             Connections
           </button>
         </div>
       </div>
+      {showGitHubPanel && (
+        <GitHubCommitPanel
+          config={githubConfig}
+          token={githubToken}
+          commitMessage={commitMessage}
+          isCommitting={commitState === "committing"}
+          onConfigChange={(key, value) => setGithubConfig((current) => ({ ...current, [key]: value }))}
+          onTokenChange={setGithubToken}
+          onCommitMessageChange={setCommitMessage}
+          onCommit={onCommitToGitHub}
+        />
+      )}
       <NoteEditor
         note={note}
         candidates={allNotes}
