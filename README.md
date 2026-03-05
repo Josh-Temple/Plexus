@@ -8,11 +8,41 @@ Android/モバイルファーストの **Zettelkasten特化 Obsidian風 PKM** MV
 - この方針により、編集UX（オートセーブ・リンク解析）を維持しつつ、GitHubを履歴共有/外部連携先として使えます。
 
 
-## GitHub連携（MVP実装）
-- Note画面ヘッダーの **GitHub** ボタンから、`owner/repo/branch/path/token` を入力して現在ノートをコミットできます。
-- 実行時は `POST /api/github/commit` を通して GitHub Contents API (`PUT /repos/{owner}/{repo}/contents/{path}`) を呼び出します。
+## GitHub連携（GitHub App方式）
+- Note画面ヘッダーの **GitHub** ボタンから、`owner/repo/branch/path` とコミットメッセージを入力して現在ノートをコミットできます。
+- 実行時は `POST /api/github/commit` がサーバー側で GitHub App JWT を生成し、Installation Token を取得した上で GitHub Contents API (`PUT /repos/{owner}/{repo}/contents/{path}`) を呼び出します。
 - 初回はファイル作成、既存ファイルがある場合は `sha` を取得して更新コミットします。
-- **注意**: リファクタリング後のMVPでは `owner/repo/branch/path` のみを `localStorage` に保持し、`token` はセッション入力のみ（永続化しない）に変更しました。
+- `owner/repo/branch/path` は `localStorage` に保持されます（個人トークン入力は不要）。
+
+
+## GitHub連携 FAQ（現状の実装ベース）
+- **GitHub App連携の方向性になっていますか？**  
+  はい。現状実装は **GitHub App認証（サーバー側）** を使う方式です。
+- **GitHub連携のためのUIはありますか？**  
+  はい。Note画面ヘッダーの **GitHub** ボタンから、`owner/repo/branch/path` とコミットメッセージを入力できるUIがあります。
+- **リポジトリは指定するのがいい？**  
+  はい。`owner` と `repo` を明示入力する前提です（必要に応じて `branch` と `path` も指定）。
+- **GitHub側でトークン取得したりすればいいですか？**  
+  利用者がPATを発行する必要はありません。サーバーに設定したGitHub Appの資格情報を使って、都度Installation Tokenを発行して処理します。
+
+### GitHub App設定（必須環境変数）
+`.env.local` またはデプロイ先環境変数に以下を設定してください。
+
+```bash
+GITHUB_APP_ID=<GitHub App ID>
+GITHUB_APP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
+...
+-----END PRIVATE KEY-----"
+```
+
+> `GITHUB_APP_PRIVATE_KEY` は改行を `\\n` エスケープで保持できます。
+
+
+### GitHub App連携の残課題（推奨）
+- **API認可の追加**: 現在の`/api/github/commit`はリクエスト元ユーザーの認可チェックを行っていないため、アプリ利用者の権限境界を明確化する必要があります。
+- **対象リポジトリの許可リスト化**: 想定外リポジトリへの書き込み防止のため、`owner/repo`のallowlistやworkspace紐づけ制御を推奨します。
+- **監査ログ/レート制限**: 誰がどのノートをどのrepoへコミットしたかの監査ログ、およびAPIレート制限の導入を推奨します。
+- **エラーUX改善**: Installation未設定・権限不足・branch/path不正などGitHub APIエラーをUIで分類表示すると運用しやすくなります。
 
 ## 実装済み（MVP）
 - Auth（Supabase OTPログイン）

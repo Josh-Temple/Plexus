@@ -42,7 +42,6 @@ export default function NotePage() {
   const [showGitHubPanel, setShowGitHubPanel] = useState(false);
   const [commitState, setCommitState] = useState<CommitState>("idle");
   const [commitMessage, setCommitMessage] = useState("Update note from Plexus");
-  const [githubToken, setGithubToken] = useState("");
   const [githubConfig, setGithubConfig] = useState<GitHubRepoConfig>({
     owner: "",
     repo: "",
@@ -233,8 +232,8 @@ export default function NotePage() {
   const onCommitToGitHub = async () => {
     if (!note) return;
 
-    if (!githubToken || !githubConfig.owner || !githubConfig.repo || !githubConfig.branch || !githubConfig.path) {
-      setToast("Fill in all GitHub fields before committing.");
+    if (!githubConfig.owner || !githubConfig.repo || !githubConfig.branch || !githubConfig.path) {
+      setToast("Fill in repository, branch, and path before committing.");
       return;
     }
 
@@ -242,7 +241,6 @@ export default function NotePage() {
     try {
       const payload = {
         ...githubConfig,
-        token: githubToken,
         message: commitMessage || `Update note ${note.id}`,
         content: `# ${note.title || "Untitled note"}
 
@@ -300,11 +298,9 @@ ${note.body}`,
       {showGitHubPanel && (
         <GitHubCommitPanel
           config={githubConfig}
-          token={githubToken}
           commitMessage={commitMessage}
           isCommitting={commitState === "committing"}
           onConfigChange={(key, value) => setGithubConfig((current) => ({ ...current, [key]: value }))}
-          onTokenChange={setGithubToken}
           onCommitMessageChange={setCommitMessage}
           onCommit={onCommitToGitHub}
         />
