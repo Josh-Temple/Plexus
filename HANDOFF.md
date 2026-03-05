@@ -435,3 +435,18 @@ npm run typecheck
 - 検証: `npm run lint` / `npm run typecheck` / `npm run build` を通過。
 - Playwrightでモバイル画面スクリーンショットを取得（`artifacts/mobile-home-redesign.png`）。
 
+
+## Session Update (2026-03-05)
+- Added a new server route `POST /api/save-note` for note-oriented GitHub persistence.
+  - Accepts `title`, `content`, `path` (required), and optional `tags`, `owner`, `repo`, `branch`, `message`.
+  - Writes Markdown with YAML frontmatter (`title`, `tags`, `created`) to GitHub via GitHub App auth.
+  - Enforces safe note path policy: only `notes/*.md` and blocks path traversal (`..`).
+- Refactored GitHub App token/contents helpers into `src/lib/githubApp.ts` and reused them from both routes.
+- Hardened `/api/github/commit` with optional repository allowlist support via `GITHUB_ALLOWED_REPOS`.
+- Updated README with the recommended `/api/save-note` flow and newly supported env vars.
+
+### Suggested next steps
+1. Switch the current note UI commit action from `/api/github/commit` to `/api/save-note` when path is in `notes/`.
+2. Add user-level authorization before server-side commit/save endpoints are invoked.
+3. Add conflict handling strategy for concurrent updates (SHA mismatch retry policy).
+4. Add webhook endpoint for index/graph jobs once baseline save flow is stable.

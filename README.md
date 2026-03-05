@@ -33,10 +33,26 @@ GITHUB_APP_ID=<GitHub App ID>
 GITHUB_APP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
 ...
 -----END PRIVATE KEY-----"
+
+# optional: /api/save-note defaults
+GITHUB_NOTES_OWNER=<default owner>
+GITHUB_NOTES_REPO=<default repo>
+GITHUB_NOTES_BRANCH=main
+
+# optional: restrict writable repositories
+GITHUB_ALLOWED_REPOS=<owner1/repo1,owner2/repo2>
 ```
 
 > `GITHUB_APP_PRIVATE_KEY` は改行を `\\n` エスケープで保持できます。
 
+
+
+### 追加API（notes向けの推奨エンドポイント）
+- `POST /api/save-note` を追加しました。
+- このAPIは `title/content/path(/notes配下)` を受け取り、Markdown frontmatter付きでGitHubへ保存します。
+- `path` は **`notes/` 配下かつ `.md`** に制限されます（`..` を拒否）。
+- `owner/repo/branch` はリクエスト指定または環境変数 (`GITHUB_NOTES_OWNER`, `GITHUB_NOTES_REPO`, `GITHUB_NOTES_BRANCH`) から解決します。
+- `GITHUB_ALLOWED_REPOS`（`owner/repo` のカンマ区切り）を設定すると、許可repo以外への書き込みを拒否します。
 
 ### GitHub App連携の残課題（推奨）
 - **API認可の追加**: 現在の`/api/github/commit`はリクエスト元ユーザーの認可チェックを行っていないため、アプリ利用者の権限境界を明確化する必要があります。
