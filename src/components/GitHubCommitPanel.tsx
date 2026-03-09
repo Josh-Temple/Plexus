@@ -10,9 +10,13 @@ export type GitHubRepoConfig = {
 type Props = {
   config: GitHubRepoConfig;
   commitMessage: string;
+  fileUrl: string;
   isCommitting: boolean;
+  isOpeningFromUrl: boolean;
   onConfigChange: (key: keyof GitHubRepoConfig, value: string) => void;
   onCommitMessageChange: (value: string) => void;
+  onFileUrlChange: (value: string) => void;
+  onOpenFromUrl: () => void;
   onCommit: () => void;
 };
 
@@ -21,15 +25,33 @@ const onInput = (handler: (value: string) => void) => (event: ChangeEvent<HTMLIn
 export function GitHubCommitPanel({
   config,
   commitMessage,
+  fileUrl,
   isCommitting,
+  isOpeningFromUrl,
   onConfigChange,
   onCommitMessageChange,
+  onFileUrlChange,
+  onOpenFromUrl,
   onCommit,
 }: Props) {
   return (
     <section className="mb-3 rounded-xl border border-white/10 bg-black/20 p-3">
       <h2 className="mb-2 text-sm font-semibold text-slate-100">Commit to GitHub</h2>
-      <div className="grid gap-2 md:grid-cols-2">
+      <div className="rounded-lg border border-white/10 bg-white/5 p-2">
+        <p className="mb-2 text-xs text-muted">Paste a GitHub file URL to auto-fill target and load its content into this note.</p>
+        <div className="flex flex-col gap-2 md:flex-row">
+          <input
+            value={fileUrl}
+            onChange={onInput(onFileUrlChange)}
+            className="input-base"
+            placeholder="https://github.com/owner/repo/blob/main/path/to/file.md"
+          />
+          <button className="btn-ghost md:whitespace-nowrap" onClick={onOpenFromUrl} disabled={isOpeningFromUrl}>
+            {isOpeningFromUrl ? "Opening..." : "Open from URL"}
+          </button>
+        </div>
+      </div>
+      <div className="mt-2 grid gap-2 md:grid-cols-2">
         <input
           value={config.owner}
           onChange={onInput((value) => onConfigChange("owner", value.trim()))}
