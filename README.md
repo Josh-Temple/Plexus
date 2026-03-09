@@ -16,7 +16,7 @@ Android/モバイルファーストの **Zettelkasten特化 Obsidian風 PKM** MV
 - 実行時は `POST /api/github/commit` がサーバー側で GitHub App JWT を生成し、Installation Token を取得した上で GitHub Contents API (`PUT /repos/{owner}/{repo}/contents/{path}`) を呼び出します。
 - 初回はファイル作成、既存ファイルがある場合は `sha` を取得して更新コミットします。
 - `owner/repo/branch/path` は `localStorage` に保持されます（個人トークン入力は不要）。
-- GitHub URL（`github.com/.../blob/...` / `raw.githubusercontent.com/...`）を貼り付けて **Open from URL** を押すと、`owner/repo/branch/path` へ正規化して対象ファイルを読み込み、現在ノートへ反映できます。
+- GitHub URL（`github.com/.../blob/...` / `raw.githubusercontent.com/...`）を貼り付けて、`owner/repo/branch/path` へ正規化し、対象ファイルを読み込んで現在ノートへ反映できます。
 
 
 ## GitHub連携 FAQ（現状の実装ベース）

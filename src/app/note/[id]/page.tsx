@@ -62,7 +62,6 @@ export default function NotePage() {
   const [commitState, setCommitState] = useState<CommitState>("idle");
   const [commitMessage, setCommitMessage] = useState("Update note from Plexus");
   const [githubFileUrl, setGithubFileUrl] = useState("");
-  const [editorRevision, setEditorRevision] = useState(0);
   const [githubConfig, setGithubConfig] = useState<GitHubRepoConfig>({
     owner: "",
     repo: "",
@@ -301,7 +300,6 @@ export default function NotePage() {
       });
       await onSyncLinks(imported.body);
       setNote((current) => (current ? { ...current, title: imported.title, body: imported.body, body_hash: bodyHash } : current));
-      setEditorRevision((current) => current + 1);
       setToast(`Opened ${result.target.path} from ${result.target.owner}/${result.target.repo}.`);
     } catch (error) {
       setToast(getErrorMessage(error));
