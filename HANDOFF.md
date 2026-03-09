@@ -518,3 +518,80 @@ npm run typecheck
   - Root cause: drag-close gesture listeners were attached to the whole sheet container, so normal taps in inputs/buttons could be interpreted as close gestures on some devices.
   - Change: moved touch gesture handling to the top drag handle only and track distance via touch-move before closing.
   - Verify: open Quick note -> tap title/body/create button repeatedly; sheet stays open unless backdrop tap/Close button/drag handle pull-down > 60px.
+
+## Session Update (2026-03-08, GitHub App permissions clarification)
+
+### Request handled
+- User asked whether a GitHub App with both read/write permissions can open other files in an installed public repository.
+
+### Changes made
+- Updated `README.md` GitHub FAQ with a direct clarification:
+  - Yes, reading other files is possible when the installation includes the repo and the app has the required read permission scope (e.g., Contents: Read).
+  - Runtime allowlists/path restrictions in this app still take precedence over raw GitHub capability.
+
+### Validation
+- Documentation-only change; no runtime behavior changed.
+
+### Next-session notes
+- If product requirements include browser-side file browsing for connected repos, add a dedicated read API route (using installation token + server-side allowlist checks) instead of exposing broad read access directly from the client.
+
+## Session Update (2026-03-08, follow-up on file selection UX)
+
+### Request handled
+- Follow-up question: whether users can browse and open files from within the current app UI, or must manually specify the target.
+
+### Changes made
+- Updated `README.md` FAQ to explicitly state current behavior:
+  - No in-app repository file browser is implemented in the current UI.
+  - Users must specify `owner/repo/branch/path` (or reuse saved values in localStorage).
+
+### Validation
+- Documentation-only clarification; no functional or API changes.
+
+### Next-session notes
+- If file browsing is needed, add a server-backed listing endpoint with installation-token auth and allowlist/path guardrails, then wire a picker UI in the GitHub modal.
+
+## Session Update (2026-03-08, URL parsing follow-up)
+
+### Request handled
+- Follow-up question: whether users can paste a GitHub URL and have the app interpret/normalize it to open a repository file.
+
+### Changes made
+- Updated `README.md` FAQ to clarify:
+  - This is feasible but not implemented yet.
+  - Candidate supported URL patterns include `github.com/.../blob/...` and `raw.githubusercontent.com/...`.
+  - Suggested implementation: normalize URL to `owner/repo/branch/path` and pass into a read endpoint.
+  - Security note: keep server-side allowlist/path/ref validation mandatory.
+
+### Validation
+- Documentation-only clarification; no runtime behavior changed.
+
+### Next-session notes
+- If implementing this, add parser unit tests for malformed URLs, URL-encoded paths, branch names containing slashes, and SHA refs.
+
+## Session Update (2026-03-08, GitHub URL open implementation)
+
+### Request handled
+- Implemented the discussed feature to paste a GitHub file URL, normalize it, and open repository file content in the note editor.
+
+### Changes made
+- Added UI in `GitHubCommitPanel`:
+  - New URL input field.
+  - `Open from URL` action to fetch and load content.
+- Added API route `POST /api/github/open`:
+  - Accepts GitHub file URL (`github.com/.../blob/...`, `raw.githubusercontent.com/...`, plus API contents URL).
+  - Resolves `owner/repo/branch/path` with branch/path ambiguity handling.
+  - Applies GitHub App installation auth and repository allowlist checks.
+  - Returns normalized target + decoded UTF-8 content.
+- Wired note page behavior:
+  - Persist URL input in `localStorage`.
+  - Open action updates GitHub target fields and imports fetched content into current note.
+  - If content starts with `# ` heading, it is mapped to note title and remaining text becomes body.
+
+### Validation
+- `npm run lint` passed.
+- `npm run typecheck` passed.
+
+### Next-session notes
+- Add focused unit tests for URL parsing edge cases (branch names with slashes, URL-encoded paths, malformed URLs, refs as SHA).
+- Consider adding an explicit "import mode" option to preserve full raw markdown in body without title extraction.

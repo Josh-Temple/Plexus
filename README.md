@@ -16,6 +16,7 @@ Android/モバイルファーストの **Zettelkasten特化 Obsidian風 PKM** MV
 - 実行時は `POST /api/github/commit` がサーバー側で GitHub App JWT を生成し、Installation Token を取得した上で GitHub Contents API (`PUT /repos/{owner}/{repo}/contents/{path}`) を呼び出します。
 - 初回はファイル作成、既存ファイルがある場合は `sha` を取得して更新コミットします。
 - `owner/repo/branch/path` は `localStorage` に保持されます（個人トークン入力は不要）。
+- GitHub URL（`github.com/.../blob/...` / `raw.githubusercontent.com/...`）を貼り付けて、`owner/repo/branch/path` へ正規化し、対象ファイルを読み込んで現在ノートへ反映できます。
 
 
 ## GitHub連携 FAQ（現状の実装ベース）
@@ -27,6 +28,12 @@ Android/モバイルファーストの **Zettelkasten特化 Obsidian風 PKM** MV
   はい。`owner` と `repo` を明示入力する前提です（必要に応じて `branch` と `path` も指定）。
 - **GitHub側でトークン取得したりすればいいですか？**  
   利用者がPATを発行する必要はありません。サーバーに設定したGitHub Appの資格情報を使って、都度Installation Tokenを発行して処理します。
+- **GitHub Appにread/write権限を付けていれば、連携済みpublicリポジトリ内の別ファイルも開けますか？**  
+  はい。対象リポジトリがそのInstallationに含まれ、かつ対象ファイル種別の読み取り権限（例: Contents: Read）がある場合は、GitHub API（例: `GET /repos/{owner}/{repo}/contents/{path}`）で別ファイルを取得できます。実装側で許可リポジトリや許可パスを制限している場合は、その制限が優先されます。
+- **開きたいファイルは、アプリ上でたどれますか？それとも指定が必要ですか？**  
+  現状UIではリポジトリ内をブラウズして選択する機能はありません。`owner/repo/branch/path` を入力（または保存済み値を再利用）して対象を指定する運用です。
+- **GitHubのURLを貼れば、自動で解釈・整形して開けますか？**  
+  はい。現在は `https://github.com/{owner}/{repo}/blob/{branch}/{path}` と `raw.githubusercontent.com/...` を受け取り、`owner/repo/branch/path` に正規化してサーバー経由で読み込みます。`GITHUB_ALLOWED_REPOS` などのサーバー側制約は引き続き適用されます。
 
 ### GitHub App設定（必須環境変数）
 `.env.local` またはデプロイ先環境変数に以下を設定してください。
