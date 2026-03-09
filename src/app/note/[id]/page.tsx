@@ -17,7 +17,7 @@ type LinkRow = { id: string; from_note_id: string; to_note_id: string; notes?: {
 type RawLinkRow = Omit<LinkRow, "notes"> & { notes?: { title: string } | { title: string }[] | null };
 type SaveState = "saving" | "saved" | "error";
 
-type CommitState = "idle" | "committing";
+type CommitState = "idle" | "committing" | "opening";
 
 const normalizeLinkRows = (rows: RawLinkRow[] | null | undefined): LinkRow[] =>
   (rows ?? []).map((row) => ({
@@ -28,6 +28,24 @@ const normalizeLinkRows = (rows: RawLinkRow[] | null | undefined): LinkRow[] =>
 const getErrorMessage = (error: unknown) => getUserFriendlySupabaseError(error);
 
 const getUniqueLinkTitles = (body: string) => [...new Set(extractWikiLinks(body))];
+
+const parseImportedMarkdown = (rawContent: string) => {
+  const content = rawContent.replace(/\r\n/g, "\n").trimEnd();
+  const lines = content.split("\n");
+  const firstLine = lines[0]?.trim() ?? "";
+
+  if (firstLine.startsWith("# ")) {
+    return {
+      title: firstLine.slice(2).trim() || "Imported note",
+      body: lines.slice(1).join("\n").replace(/^\n+/, ""),
+    };
+  }
+
+  return {
+    title: "Imported note",
+    body: content,
+  };
+};
 
 export default function NotePage() {
   const params = useParams<{ id: string }>();
@@ -43,6 +61,8 @@ export default function NotePage() {
   const [showGitHubPanel, setShowGitHubPanel] = useState(false);
   const [commitState, setCommitState] = useState<CommitState>("idle");
   const [commitMessage, setCommitMessage] = useState("Update note from Plexus");
+  const [githubFileUrl, setGithubFileUrl] = useState("");
+  const [editorRevision, setEditorRevision] = useState(0);
   const [githubConfig, setGithubConfig] = useState<GitHubRepoConfig>({
     owner: "",
     repo: "",
@@ -220,12 +240,22 @@ export default function NotePage() {
     } catch {
       window.localStorage.removeItem("plexus-github-config");
     }
+
+    const storedFileUrl = window.localStorage.getItem("plexus-github-file-url");
+    if (storedFileUrl) {
+      setGithubFileUrl(storedFileUrl);
+    }
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem("plexus-github-config", JSON.stringify(githubConfig));
   }, [githubConfig]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("plexus-github-file-url", githubFileUrl);
+  }, [githubFileUrl]);
 
   useEffect(() => {
     if (!note) return;
@@ -235,6 +265,50 @@ export default function NotePage() {
       path: current.path || `notes/${note.id}.md`,
     }));
   }, [note]);
+
+  const onOpenFromGitHubUrl = async () => {
+    if (!note || !githubFileUrl.trim()) {
+      setToast("Paste a GitHub file URL first.");
+      return;
+    }
+
+    setCommitState("opening");
+    try {
+      const response = await fetch("/api/github/open", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: githubFileUrl.trim() }),
+      });
+
+      const result = (await response.json()) as {
+        error?: string;
+        target?: GitHubRepoConfig;
+        content?: string;
+      };
+
+      if (!response.ok || !result.target || typeof result.content !== "string") {
+        throw new Error(result.error || "Failed to open file from URL.");
+      }
+
+      setGithubConfig(result.target);
+      const imported = parseImportedMarkdown(result.content);
+      const bodyHash = await cheapHash(imported.body);
+
+      await onAutoSave({
+        title: imported.title,
+        body: imported.body,
+        body_hash: bodyHash,
+      });
+      await onSyncLinks(imported.body);
+      setNote((current) => (current ? { ...current, title: imported.title, body: imported.body, body_hash: bodyHash } : current));
+      setEditorRevision((current) => current + 1);
+      setToast(`Opened ${result.target.path} from ${result.target.owner}/${result.target.repo}.`);
+    } catch (error) {
+      setToast(getErrorMessage(error));
+    } finally {
+      setCommitState("idle");
+    }
+  };
 
   const onCommitToGitHub = async () => {
     if (!note) return;
@@ -306,13 +380,18 @@ ${note.body}`,
         <GitHubCommitPanel
           config={githubConfig}
           commitMessage={commitMessage}
+          fileUrl={githubFileUrl}
           isCommitting={commitState === "committing"}
+          isOpeningFromUrl={commitState === "opening"}
           onConfigChange={(key, value) => setGithubConfig((current) => ({ ...current, [key]: value }))}
           onCommitMessageChange={setCommitMessage}
+          onFileUrlChange={setGithubFileUrl}
+          onOpenFromUrl={onOpenFromGitHubUrl}
           onCommit={onCommitToGitHub}
         />
       )}
       <NoteEditor
+        key={`${note.id}-${editorRevision}`}
         note={note}
         candidates={allNotes}
         insertRequest={insertRequest}
