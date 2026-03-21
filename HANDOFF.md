@@ -19,6 +19,14 @@
 # 2. ここまでにやったこと（箇条書き、重要なコミット/PRがあればID）
 
 
+## 2026-03-21 Session Update (PWA support)
+- Verified the app was not yet a PWA: there was no manifest, no service worker, no install metadata, and no registration flow.
+- Added `src/app/manifest.ts` with standalone PWA metadata and install icons.
+- Added generated app icons via `src/app/icon.tsx` and `src/app/apple-icon.tsx`.
+- Added a service worker at `src/app/sw.js/route.ts` and client registration in `src/components/PwaRegistration.tsx`.
+- Updated `src/app/layout.tsx` metadata to expose the manifest, theme color, and Apple web app settings.
+- Updated `README.md` to document the new PWA support.
+
 ## 2026-03-05 Session Update (Open issues review for GitHub App flow)
 - Reviewed README/HANDOFF and documented remaining risks after the GitHub App pivot.
 - Added a README section for follow-up items: API authorization, repository allowlist, audit/rate limiting, and clearer GitHub error UX.
