@@ -389,7 +389,7 @@ ${note.body}`,
         />
       )}
       <NoteEditor
-        key={`${note.id}-${editorRevision}`}
+        key={note.id}
         note={note}
         candidates={allNotes}
         insertRequest={insertRequest}

@@ -90,6 +90,12 @@ GITHUB_ALLOWED_REPOS=<owner1/repo1,owner2/repo2>
 - Fixed a mobile interaction bug where tapping inside the Quick note sheet could trigger an unintended close; drag-to-close is now limited to the handle area only.
 
 
+## PWA support
+- Plexus is now configured as a Progressive Web App (PWA).
+- Added a Web App Manifest (`src/app/manifest.ts`) with standalone display mode, theme colors, and install icons.
+- Added generated app icons (`src/app/icon.tsx`, `src/app/apple-icon.tsx`) for installability on Android/iOS.
+- Added a service worker route (`src/app/sw.js/route.ts`) plus client-side registration (`src/components/PwaRegistration.tsx`) to enable installation and basic offline caching for app routes.
+
 ## セットアップ
 
 ### 1) 環境変数
