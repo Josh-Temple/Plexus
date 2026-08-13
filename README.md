@@ -190,6 +190,7 @@ OTP直後はセッション反映前に書き込みが走ることがあるた�
 - `SuggestBar` : `src/components/SuggestBar.tsx`
 
 ## Vercelデプロイ
+- Production: https://plexus-nine.vercel.app/
 1. VercelでGitHub連携
 2. Environment Variablesに `.env.local` と同じ2つを設定
 3. Deploy
