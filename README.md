@@ -199,3 +199,12 @@ OTP直後はセッション反映前に書き込みが走ることがあるた�
 - Fixed note creation failures in environments where `crypto.subtle` is unavailable (some insecure/dev browser contexts).
 - Updated `cheapHash` in `src/lib/noteUtils.ts` to use SHA-256 when available and gracefully fall back to a deterministic non-cryptographic hash when unavailable.
 - This keeps duplicate-check and create flows working instead of throwing at note creation time.
+
+
+## GitHub API access control (security)
+
+The `/api/github/open`, `/api/github/commit` and `/api/save-note` routes require a valid Supabase access token in the `Authorization: Bearer <token>` header. The server verifies the token with Supabase Auth and requires the authenticated user's UUID to be present in `GITHUB_EDITOR_USER_IDS` (comma-separated, **server-only**, not `NEXT_PUBLIC_`). The note editor sends the signed-in user's session token for the open and commit endpoints. External callers of `/api/save-note` must supply the same header.
+
+Set `GITHUB_EDITOR_USER_IDS` to the editor's Supabase Auth user UUID and `GITHUB_ALLOWED_REPOS` to an explicit comma-separated list of `owner/repo` identifiers in the Vercel Production/Preview environments. Both lists **fail closed** when missing or empty; the routes return 503 until the editor list and Supabase URL/anon key are configured, and repository operations are denied until the repo list is set. Do not configure the GitHub App with access to more repositories than needed. These variables must be set before deploying this change to retain GitHub write functionality. Never store the GitHub private key or Supabase service-role key in client/public variables.
+
+After deployment, verify that unauthenticated requests to all three routes return 401, authenticated non-editor requests return 403, disallowed repositories return 403, and an explicitly authorized editor can open/commit only within the allowlist. Keep deployment protection enabled.

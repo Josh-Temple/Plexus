@@ -1,3 +1,4 @@
+import { authorizeGitHubApiRequest } from "@/lib/githubApiAuth";
 import { NextRequest, NextResponse } from "next/server";
 import { assertRepoAllowed, buildContentsEndpoint, getInstallationToken, githubJsonHeaders, parseAllowList } from "@/lib/githubApp";
 
@@ -130,6 +131,9 @@ const resolveTargetFromUrl = async (url: string, token: string): Promise<RepoTar
 const decodeContent = (content: string) => Buffer.from(content, "base64").toString("utf8");
 
 export async function POST(request: NextRequest) {
+  const authorization = await authorizeGitHubApiRequest(request);
+  if (!authorization.ok) return authorization.response;
+
   const body = (await request.json().catch(() => null)) as OpenRequest | null;
   if (!body) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });

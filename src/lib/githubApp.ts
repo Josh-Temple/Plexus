@@ -42,7 +42,9 @@ export const parseAllowList = (raw?: string) =>
     .filter(Boolean);
 
 export const assertRepoAllowed = (owner: string, repo: string, allowList: string[]) => {
-  if (!allowList.length) return;
+  if (!allowList.length) {
+    throw new Error("GITHUB_ALLOWED_REPOS is not configured.");
+  }
   const key = `${owner}/${repo}`.toLowerCase();
   if (!allowList.includes(key)) {
     throw new Error("This repository is not allowed by server policy.");
