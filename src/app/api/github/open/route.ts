@@ -1,3 +1,4 @@
+import { authorizeGitHubApiRequest } from "@/lib/githubApiAuth";
 import { NextRequest, NextResponse } from "next/server";
 import { assertRepoAllowed, buildContentsEndpoint, getInstallationToken, githubJsonHeaders, parseAllowList } from "@/lib/githubApp";
 
@@ -130,6 +131,9 @@ const resolveTargetFromUrl = async (url: string, token: string): Promise<RepoTar
 const decodeContent = (content: string) => Buffer.from(content, "base64").toString("utf8");
 
 export async function POST(request: NextRequest) {
+  const authorization = await authorizeGitHubApiRequest(request);
+  if (!authorization.ok) return authorization.response;
+
   const body = (await request.json().catch(() => null)) as OpenRequest | null;
   if (!body) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
@@ -167,10 +171,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Could not infer owner/repo from URL." }, { status: 400 });
       }
       assertRepoAllowed(inferredOwner, inferredRepo, parseAllowList(process.env.GITHUB_ALLOWED_REPOS));
-      token = await getInstallationToken(inferredOwner, inferredRepo);
+      token = await getInstallationToken(inferredOwner, inferredRepo, "read");
     } else {
       assertRepoAllowed(owner, repo, parseAllowList(process.env.GITHUB_ALLOWED_REPOS));
-      token = await getInstallationToken(tokenOwner, tokenRepo);
+      token = await getInstallationToken(tokenOwner, tokenRepo, "read");
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to authenticate with GitHub App.";

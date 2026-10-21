@@ -1,0 +1,61 @@
+name: Verify GitHub API authorization
+on:
+  pull_request:
+    paths:
+      - 'src/lib/githubApiAuth.ts'
+      - 'src/lib/githubApp.ts'
+      - 'src/app/api/**'
+      - 'tests/security-auth.test.mjs'
+      - 'tests/mock-supabase-auth.mjs'
+      - '.github/workflows/security-auth.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - run: node --experimental-strip-types --test tests/security-auth.test.mjs
+      - name: Verify unauthenticated, invalid-session and non-editor access over local HTTP
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:3101'
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fake-local-only-publishable-key'
+          GITHUB_EDITOR_USER_IDS: '11111111-1111-4111-8111-111111111111'
+          GITHUB_ALLOWED_REPOS: 'Josh-Temple/Plexus'
+        run: |
+          node tests/mock-supabase-auth.mjs >/tmp/plexus-mock-auth.log 2>&1 &
+          mock_pid=$!
+          npm run dev -- --port 3000 >/tmp/plexus-auth-test.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" "$mock_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail -H 'Authorization: Bearer fake-authorized-test-token' http://127.0.0.1:3101/auth/v1/user >/dev/null && curl --silent --fail http://127.0.0.1:3000/auth >/dev/null; then break; fi
+            sleep 2
+          done
+          for path in github/open github/commit save-note; do
+            for pair in "none:401" "invalid:401" "non-editor:403"; do
+              case "$pair" in
+                none:*) header=(); expected=401 ;;
+                invalid:*) header=(-H 'Authorization: Bearer fake-invalid-token'); expected=401 ;;
+                non-editor:*) header=(-H 'Authorization: Bearer fake-authorized-test-token'); expected=403 ;;
+              esac
+              code="$(curl --silent --output /tmp/plexus-auth-response --write-out '%{http_code}' -X POST "${header[@]}" -H 'Content-Type: application/json' -d '{}' "http://127.0.0.1:3000/api/$path")"
+              if test "$code" != "$expected"; then
+                echo "POST /api/$path test=$pair produced $code (expected $expected)"
+                cat /tmp/plexus-auth-test.log
+                exit 1
+              fi
+            done
+          done
+          echo 'All three API routes enforce 401/403 without issuing GitHub tokens'
+      - run: npm run typecheck
+      - run: npm run build

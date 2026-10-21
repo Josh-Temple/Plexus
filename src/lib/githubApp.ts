@@ -42,14 +42,16 @@ export const parseAllowList = (raw?: string) =>
     .filter(Boolean);
 
 export const assertRepoAllowed = (owner: string, repo: string, allowList: string[]) => {
-  if (!allowList.length) return;
+  if (!allowList.length) {
+    throw new Error("GITHUB_ALLOWED_REPOS is not configured.");
+  }
   const key = `${owner}/${repo}`.toLowerCase();
   if (!allowList.includes(key)) {
     throw new Error("This repository is not allowed by server policy.");
   }
 };
 
-export const getInstallationToken = async (owner: string, repo: string) => {
+export const getInstallationToken = async (owner: string, repo: string, access: "read" | "write" = "write") => {
   const appId = process.env.GITHUB_APP_ID;
   const rawPrivateKey = process.env.GITHUB_APP_PRIVATE_KEY;
 
@@ -89,6 +91,8 @@ export const getInstallationToken = async (owner: string, repo: string) => {
       Authorization: `Bearer ${jwt}`,
       "Content-Type": "application/json",
     },
+    // Limit a leaked installation token to one repository and contents access.
+    body: JSON.stringify({ repositories: [repo], permissions: { contents: access } }),
     cache: "no-store",
   });
 

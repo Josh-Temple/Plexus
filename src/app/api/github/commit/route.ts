@@ -1,3 +1,4 @@
+import { authorizeGitHubApiRequest } from "@/lib/githubApiAuth";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -22,6 +23,9 @@ type CommitRequest = {
 const isBlank = (value?: string) => !value || !value.trim();
 
 export async function POST(request: Request) {
+  const authorization = await authorizeGitHubApiRequest(request);
+  if (!authorization.ok) return authorization.response;
+
   const body = (await request.json()) as CommitRequest;
 
   if ([body.owner, body.repo, body.branch, body.path, body.message, body.content].some((item) => isBlank(item))) {

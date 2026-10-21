@@ -1,3 +1,4 @@
+import { authorizeGitHubApiRequest } from "@/lib/githubApiAuth";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -44,6 +45,9 @@ const toMarkdown = ({ title, content, tags }: { title: string; content: string; 
 };
 
 export async function POST(request: Request) {
+  const authorization = await authorizeGitHubApiRequest(request);
+  if (!authorization.ok) return authorization.response;
+
   const body = (await request.json()) as SaveNoteRequest;
 
   if ([body.title, body.content, body.path].some((item) => isBlank(item))) {

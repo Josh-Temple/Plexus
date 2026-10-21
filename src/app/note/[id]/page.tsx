@@ -273,9 +273,12 @@ export default function NotePage() {
 
     setCommitState("opening");
     try {
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!accessToken) throw new Error("Sign in before accessing GitHub.");
+
       const response = await fetch("/api/github/open", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ url: githubFileUrl.trim() }),
       });
 
@@ -326,9 +329,12 @@ export default function NotePage() {
 ${note.body}`,
       };
 
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!accessToken) throw new Error("Sign in before accessing GitHub.");
+
       const response = await fetch("/api/github/commit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify(payload),
       });
 
