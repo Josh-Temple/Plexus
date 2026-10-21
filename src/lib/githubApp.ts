@@ -51,7 +51,7 @@ export const assertRepoAllowed = (owner: string, repo: string, allowList: string
   }
 };
 
-export const getInstallationToken = async (owner: string, repo: string) => {
+export const getInstallationToken = async (owner: string, repo: string, access: "read" | "write" = "write") => {
   const appId = process.env.GITHUB_APP_ID;
   const rawPrivateKey = process.env.GITHUB_APP_PRIVATE_KEY;
 
@@ -92,7 +92,7 @@ export const getInstallationToken = async (owner: string, repo: string) => {
       "Content-Type": "application/json",
     },
     // Limit a leaked installation token to one repository and contents access.
-    body: JSON.stringify({ repositories: [repo], permissions: { contents: "write" } }),
+    body: JSON.stringify({ repositories: [repo], permissions: { contents: access } }),
     cache: "no-store",
   });
 
