@@ -171,10 +171,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Could not infer owner/repo from URL." }, { status: 400 });
       }
       assertRepoAllowed(inferredOwner, inferredRepo, parseAllowList(process.env.GITHUB_ALLOWED_REPOS));
-      token = await getInstallationToken(inferredOwner, inferredRepo);
+      token = await getInstallationToken(inferredOwner, inferredRepo, "read");
     } else {
       assertRepoAllowed(owner, repo, parseAllowList(process.env.GITHUB_ALLOWED_REPOS));
-      token = await getInstallationToken(tokenOwner, tokenRepo);
+      token = await getInstallationToken(tokenOwner, tokenRepo, "read");
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to authenticate with GitHub App.";
