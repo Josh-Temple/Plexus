@@ -91,6 +91,8 @@ export const getInstallationToken = async (owner: string, repo: string) => {
       Authorization: `Bearer ${jwt}`,
       "Content-Type": "application/json",
     },
+    // Limit a leaked installation token to one repository and contents access.
+    body: JSON.stringify({ repositories: [repo], permissions: { contents: "write" } }),
     cache: "no-store",
   });
 
