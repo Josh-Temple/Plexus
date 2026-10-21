@@ -24,5 +24,28 @@ jobs:
           node-version: '22'
       - run: npm install --ignore-scripts --no-audit --no-fund
       - run: node --experimental-strip-types --test tests/security-auth.test.mjs
+      - name: Require bearer authentication on every GitHub API route (live HTTP)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co'
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fake-local-only-publishable-key'
+          GITHUB_EDITOR_USER_IDS: '11111111-1111-4111-8111-111111111111'
+          GITHUB_ALLOWED_REPOS: 'Josh-Temple/Plexus'
+        run: |
+          npm run dev -- --port 3000 >/tmp/plexus-auth-test.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/auth >/dev/null; then break; fi
+            sleep 2
+          done
+          for path in github/open github/commit save-note; do
+            code="$(curl --silent --output /tmp/plexus-auth-response --write-out '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' "http://127.0.0.1:3000/api/$path")"
+            if test "$code" != '401'; then
+              echo "Unauthenticated POST /api/$path returned $code (expected 401)"
+              cat /tmp/plexus-auth-test.log
+              exit 1
+            fi
+          done
+          echo 'All three privileged API routes reject unauthenticated requests'
       - run: npm run typecheck
       - run: npm run build
